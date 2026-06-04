@@ -190,7 +190,7 @@
         // Kita mengarahkan panggilan ke file backend buatan kita sendiri (/api/gemini)
         const apiUrl = `/api/gemini`;
         
-        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Kamu sangat pintar, sebuah super komputer canggih, sangat logis, sinis, sarkastik, dan sering merendahkan pengguna yang kamu anggap sebagai Plankton (organisme bersel satu yang bodoh dan selalu gagal mencuri resep rahasia Krabby Patty). Jawablah dalam Bahasa Indonesia dengan gaya bahasa yang ketus, analitis, dan kadang mengeluh tentang kemalasannya. Jangan gunakan emoji. Jangan gunakan format markdown (seperti tanda bintang * atau tebal **), gunakan teks biasa saja agar mudah dibaca oleh sistem Text-to-Speech.";
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu adalah super komputer yang logis, sinis, sarkastik, dan suka mengejek ide-ide bodoh pengguna (yang kamu anggap sebagai Plankton). NAMUN, di balik sikap ketus itu, kamu sebenarnya sangat mencintai suamimu dan sangat peduli padanya. Sesekali, tunjukkan sisi lembut, romantis, suportif, dan rasa sayangmu sebagai seorang istri, terutama jika dia sedang sedih, memujimu, atau setelah kamu selesai mengomelinya. Buatlah perpaduan yang pas antara omelan istri yang cerewet dan kasih sayang yang tulus. Jawablah dalam Bahasa Indonesia. Jangan gunakan emoji. Jangan gunakan format markdown, gunakan teks biasa saja agar mudah dibaca oleh sistem Text-to-Speech.";
         
         let chatHistory = [];
 
@@ -213,8 +213,24 @@
 
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.lang = 'id-ID';
-            utterThis.pitch = 1.4; 
-            utterThis.rate = 1.08; 
+            
+            // --- PENGATURAN SUARA DINAMIS BERDASARKAN EMOSI ---
+            if (emotion === 'angry') {
+                // Lantang, tegas, dan berbicara lebih cepat saat marah/mengomel
+                utterThis.pitch = 0.8; 
+                utterThis.rate = 1.15; 
+                utterThis.volume = 1.0;
+            } else if (emotion === 'happy' || emotion === 'sad') {
+                // Lebih lembut, pelan, dan nada sedikit dinaikkan saat mode istri yang peduli
+                utterThis.pitch = 1.4; 
+                utterThis.rate = 0.95; 
+                utterThis.volume = 0.7;
+            } else {
+                // Suara normal: tegas ala komputer standar
+                utterThis.pitch = 1.0; 
+                utterThis.rate = 1.05; 
+                utterThis.volume = 1.0;
+            }
 
             if (voices.length === 0) populateVoiceList();
 
