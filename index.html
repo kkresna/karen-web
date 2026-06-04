@@ -160,13 +160,13 @@
             <p class="text-lg mt-4 text-green-400 opacity-70">(Katakan "Maaf" untuk mengaktifkan kembali)</p>
         </div>
 
-        <!-- Area Wajah (Gelombang dan Mata) -->
+        <!-- Area Wajah (Gelombang) -->
         <svg class="waveform" viewBox="0 0 200 100" preserveAspectRatio="none">
             <!-- Garis Mata -->
             <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
             <path id="right-eye" class="eye-path" d="M 130 25 L 160 25" opacity="0" />
-            <!-- Path gelombang default (diam) -->
-            <path id="wave-path" d="M 0 50 Q 25 50, 50 50 T 100 50 T 150 50 T 200 50" />
+            <!-- Path gelombang default (diam) menjadi datar -->
+            <path id="wave-path" d="M 10 50 L 190 50" />
         </svg>
 
         <!-- Input Cadangan -->
@@ -190,7 +190,7 @@
 
         // Berbagai bentuk gelombang untuk menganimasikan 'mulut' Karen
         const waveForms = {
-            idle: "M 0 50 Q 25 50, 50 50 T 100 50 T 150 50 T 200 50",
+            idle: "M 10 50 L 190 50", // Garis mulut datar
             speak1: "M 0 50 Q 25 20, 50 50 T 100 50 T 150 80, 200 50",
             speak2: "M 0 50 Q 25 80, 50 50 T 100 20 T 150 50, 200 50",
             speak3: "M 0 50 Q 25 10, 50 50 T 100 90 T 150 10, 200 50",
@@ -202,6 +202,7 @@
 
         const eyeForms = {
             neutral: { left: "M 40 25 L 70 25", right: "M 130 25 L 160 25", opacity: 0 },
+            bored: { left: "M 45 25 L 75 25", right: "M 125 25 L 155 25", opacity: 1 }, // Mata datar menunggu
             happy: { left: "M 40 30 Q 55 10 70 30", right: "M 130 30 Q 145 10 160 30", opacity: 1 },
             angry: { left: "M 40 15 L 70 35", right: "M 130 35 L 160 15", opacity: 1 },
             sad: { left: "M 40 35 L 70 15", right: "M 130 15 L 160 35", opacity: 1 },
@@ -216,6 +217,7 @@
         // Variabel Timer Diam (AFK)
         let silenceTimer;
         let shutdownTimer;
+        let boredTimer; // Timer baru untuk memunculkan mata di detik ke-5
         let isSleeping = false;
         let isWarningGiven = false;
         
@@ -481,14 +483,27 @@
         function clearTimers() {
             clearTimeout(silenceTimer);
             clearTimeout(shutdownTimer);
+            clearTimeout(boredTimer);
         }
 
         function startSilenceTimer() {
             clearTimers();
+            
+            // Di detik ke-5: Munculkan mata datar (bosan/menunggu)
+            boredTimer = setTimeout(() => {
+                if (!isSleeping && !isWarningGiven) {
+                    leftEye.setAttribute('d', eyeForms.bored.left);
+                    rightEye.setAttribute('d', eyeForms.bored.right);
+                    leftEye.setAttribute('opacity', eyeForms.bored.opacity);
+                    rightEye.setAttribute('opacity', eyeForms.bored.opacity);
+                }
+            }, 5000);
+
+            // Di detik ke-10: Marah karena didiamkan
             silenceTimer = setTimeout(() => {
                 isWarningGiven = true;
                 speakText("Kenapa kau diam saja? Cepat jawab atau aku akan mematikan sistemku sekarang juga!", "angry");
-            }, 10000); // 10 Detik AFK
+            }, 10000);
         }
 
         function executeShutdown() {
