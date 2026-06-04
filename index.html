@@ -94,9 +94,29 @@
             100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
 
+        /* Animasi merah untuk Shutdown */
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Overlay untuk Tidur/Shutdown */
+        #sleep-overlay {
+            display: none; 
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #000;
+            z-index: 60;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ef4444;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
         /* Cadangan input teks jika Mic gagal */
         #fallback-input-container {
-            display: none;
+            display: none; /* Disembunyikan secara default */
             position: absolute;
             bottom: 30px;
             width: 80%;
@@ -104,7 +124,7 @@
             align-items: center;
             border-bottom: 2px solid #4ade80;
             padding-bottom: 5px;
-            z-index: 10;
+            z-index: 70; /* Dinaikkan agar tetap bisa mengetik "maaf" saat layar mati */
         }
 
         #fallback-input-container span {
@@ -134,7 +154,13 @@
             <button id="start-btn">AKTIFKAN SISTEM</button>
         </div>
 
-        <!-- Area Wajah (Gelombang) -->
+        <!-- Overlay Shutdown -->
+        <div id="sleep-overlay">
+            <p class="text-4xl font-bold tracking-widest" style="animation: pulse-red 2s infinite;">SYSTEM SHUTDOWN</p>
+            <p class="text-lg mt-4 text-green-400 opacity-70">(Katakan "Maaf" untuk mengaktifkan kembali)</p>
+        </div>
+
+        <!-- Area Wajah (Gelombang dan Mata) -->
         <svg class="waveform" viewBox="0 0 200 100" preserveAspectRatio="none">
             <!-- Garis Mata -->
             <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
@@ -183,8 +209,15 @@
         };
 
         let speakingInterval;
+        let specialShapeTimeout; 
         let isSystemActive = false;
         let useTextFallback = false;
+        
+        // Variabel Timer Diam (AFK)
+        let silenceTimer;
+        let shutdownTimer;
+        let isSleeping = false;
+        let isWarningGiven = false;
         
         // --- INI ADALAH BAGIAN YANG BERUBAH UNTUK VERCEL ---
         // Kita mengarahkan panggilan ke file backend buatan kita sendiri (/api/gemini)
@@ -226,10 +259,9 @@
                 utterThis.rate = 0.95; 
                 utterThis.volume = 0.7;
             } else {
-                // Suara normal: tegas ala komputer standar
-                utterThis.pitch = 1.0; 
-                utterThis.rate = 1.05; 
-                utterThis.volume = 1.0;
+                // Normal
+                utterThis.pitch = 1.2; 
+                utterThis.rate = 1.08; 
             }
 
             if (voices.length === 0) populateVoiceList();
@@ -243,19 +275,37 @@
                 if (!selectedVoice) selectedVoice = idVoices[0];
             }
 
-            if (selectedVoice) utterThis.voice = selectedVoice;
+            if (selectedVoice) {
+                utterThis.voice = selectedVoice;
+            }
 
-            utterThis.onstart = () => { animateFace(true, emotion, specialShape); };
+            utterThis.onstart = () => {
+                clearTimers(); // Hentikan hitungan mundur saat Karen bicara
+                animateFace(true, emotion, specialShape);
+            };
 
             utterThis.onend = () => {
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
+                
+                // Nyalakan kembali input/telinga
                 if (isSystemActive) {
                     if (useTextFallback) {
                         fallbackInput.disabled = false;
                         fallbackInput.focus();
                     } else {
                         startListening();
+                    }
+                    
+                    // Mulai timer diam (AFK) setelah Karen selesai bicara
+                    if (!isSleeping) {
+                        if (isWarningGiven) {
+                            // Jika sudah di-warning, beri 8 detik sebelum mati total
+                            shutdownTimer = setTimeout(executeShutdown, 8000);
+                        } else {
+                            // Mulai hitung waktu diam 10 detik
+                            startSilenceTimer();
+                        }
                     }
                 }
             };
@@ -336,14 +386,9 @@
 
         function animateFace(isSpeaking, emotion = 'neutral', specialShape = null) {
             clearInterval(speakingInterval);
+            clearTimeout(specialShapeTimeout); // Bersihkan sisa timer sebelumnya
             
-            if (specialShape && waveForms[specialShape]) {
-                wavePath.setAttribute('d', waveForms[specialShape]);
-                leftEye.setAttribute('opacity', '0');
-                rightEye.setAttribute('opacity', '0');
-                return; 
-            }
-
+            // Atur bentuk mata sesuai emosi
             if (eyeForms[emotion]) {
                 leftEye.setAttribute('d', eyeForms[emotion].left);
                 rightEye.setAttribute('d', eyeForms[emotion].right);
@@ -356,23 +401,50 @@
 
             if (!isSpeaking) {
                 wavePath.setAttribute('d', waveForms.idle);
+                wavePath.removeAttribute('transform');
                 return;
             }
 
-            if (emotion === 'angry') {
-                wavePath.setAttribute('d', waveForms.annoyed);
-                let toggle = false;
-                speakingInterval = setInterval(() => {
-                    wavePath.setAttribute('transform', toggle ? 'translate(0, 5)' : 'translate(0, -5)');
-                    toggle = !toggle;
-                }, 100);
+            // Fungsi internal untuk mulai menggerakkan mulut
+            const startMouthAnimation = () => {
+                wavePath.removeAttribute('transform');
+                
+                // Kembalikan visibilitas mata jika sebelumnya disembunyikan ikon khusus
+                if (eyeForms[emotion]) {
+                    leftEye.setAttribute('opacity', eyeForms[emotion].opacity);
+                    rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
+                }
+
+                if (emotion === 'angry') {
+                    wavePath.setAttribute('d', waveForms.annoyed);
+                    let toggle = false;
+                    speakingInterval = setInterval(() => {
+                        wavePath.setAttribute('transform', toggle ? 'translate(0, 5)' : 'translate(0, -5)');
+                        toggle = !toggle;
+                    }, 100);
+                } else {
+                    const speakForms = [waveForms.speak1, waveForms.speak2, waveForms.speak3, waveForms.speak1];
+                    let i = 0;
+                    speakingInterval = setInterval(() => {
+                        wavePath.setAttribute('d', speakForms[i]);
+                        i = (i + 1) % speakForms.length;
+                    }, 150);
+                }
+            };
+
+            // Jika ada gambar khusus, tampilkan dulu selama 2 detik
+            if (specialShape && waveForms[specialShape]) {
+                wavePath.setAttribute('d', waveForms[specialShape]);
+                leftEye.setAttribute('opacity', '0');
+                rightEye.setAttribute('opacity', '0');
+                
+                // Setelah 2 detik, ganti kembali ke animasi mulut berbicara
+                specialShapeTimeout = setTimeout(() => {
+                    startMouthAnimation();
+                }, 2000);
             } else {
-                const speakForms = [waveForms.speak1, waveForms.speak2, waveForms.speak3, waveForms.speak1];
-                let i = 0;
-                speakingInterval = setInterval(() => {
-                    wavePath.setAttribute('d', speakForms[i]);
-                    i = (i + 1) % speakForms.length;
-                }, 150);
+                // Jika tidak ada gambar khusus, langsung mulai animasi mulut
+                startMouthAnimation();
             }
         }
 
@@ -405,11 +477,60 @@
             }
         }
 
+        // --- FUNGSI TIMER DAN SHUTDOWN (AFK) ---
+        function clearTimers() {
+            clearTimeout(silenceTimer);
+            clearTimeout(shutdownTimer);
+        }
+
+        function startSilenceTimer() {
+            clearTimers();
+            silenceTimer = setTimeout(() => {
+                isWarningGiven = true;
+                speakText("Kenapa kau diam saja? Cepat jawab atau aku akan mematikan sistemku sekarang juga!", "angry");
+            }, 10000); // 10 Detik AFK
+        }
+
+        function executeShutdown() {
+            isSleeping = true;
+            document.getElementById('sleep-overlay').style.display = 'flex';
+            wavePath.setAttribute('opacity', '0'); // Sembunyikan garis mulut
+            leftEye.setAttribute('opacity', '0'); // Sembunyikan mata
+            rightEye.setAttribute('opacity', '0');
+            speakText("Memulai proses shutdown. Selamat tinggal, Plankton.", "sad");
+        }
+
+        function wakeUp() {
+            isSleeping = false;
+            isWarningGiven = false;
+            document.getElementById('sleep-overlay').style.display = 'none';
+            wavePath.setAttribute('opacity', '1'); // Tampilkan wajah lagi
+            speakText("Sistem online kembali. Lain kali jangan berani-beraninya mengabaikanku lagi!", "angry");
+        }
+
+        // --- MEMPROSES INPUT ---
         async function processInput(input) {
             if (!input.trim()) return;
+            
+            clearTimers(); // Hentikan timer karena pengguna sudah menjawab
+
+            console.log("Plankton berkata:", input);
             if (useTextFallback) fallbackInput.value = '';
 
             const lowerInput = input.toLowerCase();
+
+            // Jika sistem sedang mati (Shutdown), abaikan semua ucapan KECUALI kata "maaf"
+            if (isSleeping) {
+                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
+                    wakeUp();
+                } else {
+                    console.log("Sistem offline. Menunggu permintaan maaf.");
+                }
+                return;
+            }
+
+            isWarningGiven = false; // Reset status peringatan karena sudah dijawab
+
             let responseText = "";
             let emotion = 'neutral';
             let specialShape = null;
