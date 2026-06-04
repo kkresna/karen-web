@@ -5,8 +5,8 @@ export default async function handler(req, res) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     
-    // PERUBAHAN DI SINI: Menggunakan model gemini-1.5-flash yang paling stabil dan didukung semua API Key
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // PERUBAHAN DI SINI: Menambahkan "-latest" pada nama modelnya
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     try {
         const response = await fetch(apiUrl, {
@@ -16,7 +16,6 @@ export default async function handler(req, res) {
         });
         const data = await response.json();
         
-        // Logika untuk menangkap pesan error asli dari Google jika API Key salah
         if (data.error) {
             console.error("Error dari Google:", data.error);
         }
