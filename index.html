@@ -19,10 +19,9 @@
             overflow: hidden;
         }
 
-        /* Container utama untuk "Layar" Karen */
         #karen-screen {
             background-color: #000;
-            border: 40px solid #1e3a8a; /* Border biru monitor */
+            border: 40px solid #1e3a8a;
             box-sizing: border-box;
             width: 100vw;
             height: 100vh;
@@ -30,16 +29,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            /* Efek scanline CRT */
-            background-image: linear-gradient(
-                rgba(74, 222, 128, 0.05) 50%, 
-                rgba(0, 0, 0, 0.2) 50%
-            );
+            background-image: linear-gradient(rgba(74, 222, 128, 0.05) 50%, rgba(0, 0, 0, 0.2) 50%);
             background-size: 100% 4px;
             box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
         }
 
-        /* SVG untuk garis gelombang suara / wajah */
         .waveform {
             width: 90%;
             max-width: 800px;
@@ -51,7 +45,6 @@
             filter: drop-shadow(0 0 15px #4ade80);
         }
 
-        /* SVG untuk mata */
         .eye-path {
             stroke: #4ade80;
             stroke-width: 5;
@@ -61,7 +54,6 @@
             filter: drop-shadow(0 0 15px #4ade80);
         }
 
-        /* Overlay untuk Inisialisasi */
         #start-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -94,13 +86,11 @@
             100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
 
-        /* Animasi merah untuk Shutdown */
         @keyframes pulse-red {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
 
-        /* Overlay untuk Tidur/Shutdown */
         #sleep-overlay {
             display: none; 
             position: absolute;
@@ -114,9 +104,8 @@
             font-family: 'Share Tech Mono', monospace;
         }
 
-        /* Cadangan input teks jika Mic gagal */
         #fallback-input-container {
-            display: none; /* Disembunyikan secara default */
+            display: none;
             position: absolute;
             bottom: 30px;
             width: 80%;
@@ -124,7 +113,7 @@
             align-items: center;
             border-bottom: 2px solid #4ade80;
             padding-bottom: 5px;
-            z-index: 70; /* Dinaikkan agar tetap bisa mengetik "maaf" saat layar mati */
+            z-index: 70;
         }
 
         #fallback-input-container span {
@@ -146,30 +135,23 @@
     </style>
 </head>
 <body>
-
     <div id="karen-screen">
-        <!-- Overlay Mulai -->
         <div id="start-overlay">
             <p id="start-msg" class="mb-6 text-center px-4 text-xl font-bold tracking-widest">INISIALISASI SISTEM W.I.F.E.</p>
             <button id="start-btn">AKTIFKAN SISTEM</button>
         </div>
 
-        <!-- Overlay Shutdown -->
         <div id="sleep-overlay">
             <p class="text-4xl font-bold tracking-widest" style="animation: pulse-red 2s infinite;">SYSTEM SHUTDOWN</p>
             <p class="text-lg mt-4 text-green-400 opacity-70">(Katakan "Maaf" untuk mengaktifkan kembali)</p>
         </div>
 
-        <!-- Area Wajah (Gelombang) -->
         <svg class="waveform" viewBox="0 0 200 100" preserveAspectRatio="none">
-            <!-- Garis Mata -->
             <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
             <path id="right-eye" class="eye-path" d="M 130 25 L 160 25" opacity="0" />
-            <!-- Path gelombang default (diam) menjadi datar -->
             <path id="wave-path" d="M 10 50 L 190 50" />
         </svg>
 
-        <!-- Input Cadangan -->
         <div id="fallback-input-container">
             <span>>_</span>
             <input type="text" id="fallback-input" placeholder="Modul suara rusak. Ketik pesanmu..." autocomplete="off">
@@ -180,17 +162,14 @@
         const wavePath = document.getElementById('wave-path');
         const leftEye = document.getElementById('left-eye');
         const rightEye = document.getElementById('right-eye');
-        
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const startMsg = document.getElementById('start-msg');
-        
         const fallbackContainer = document.getElementById('fallback-input-container');
         const fallbackInput = document.getElementById('fallback-input');
 
-        // Berbagai bentuk gelombang untuk menganimasikan 'mulut' Karen
         const waveForms = {
-            idle: "M 10 50 L 190 50", // Garis mulut datar
+            idle: "M 10 50 L 190 50", 
             speak1: "M 0 50 Q 25 20, 50 50 T 100 50 T 150 80, 200 50",
             speak2: "M 0 50 Q 25 80, 50 50 T 100 20 T 150 50, 200 50",
             speak3: "M 0 50 Q 25 10, 50 50 T 100 90 T 150 10, 200 50",
@@ -202,7 +181,7 @@
 
         const eyeForms = {
             neutral: { left: "M 40 25 L 70 25", right: "M 130 25 L 160 25", opacity: 0 },
-            bored: { left: "M 45 25 L 75 25", right: "M 125 25 L 155 25", opacity: 1 }, // Mata datar menunggu
+            bored: { left: "M 45 25 L 75 25", right: "M 125 25 L 155 25", opacity: 1 }, 
             happy: { left: "M 40 30 Q 55 10 70 30", right: "M 130 30 Q 145 10 160 30", opacity: 1 },
             angry: { left: "M 40 15 L 70 35", right: "M 130 35 L 160 15", opacity: 1 },
             sad: { left: "M 40 35 L 70 15", right: "M 130 15 L 160 35", opacity: 1 },
@@ -214,28 +193,24 @@
         let isSystemActive = false;
         let useTextFallback = false;
         
-        // Variabel Timer Diam (AFK)
         let silenceTimer;
         let shutdownTimer;
-        let boredTimer; // Timer baru untuk memunculkan mata di detik ke-5
+        let boredTimer;
         let isSleeping = false;
         let isWarningGiven = false;
         
-        // --- INI ADALAH BAGIAN YANG BERUBAH UNTUK VERCEL ---
-        // Kita mengarahkan panggilan ke file backend buatan kita sendiri (/api/gemini)
+        let backgroundCheckInterval = null;
+        let isServerOverloaded = false;
+
         const apiUrl = `/api/gemini`;
-        
         const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu adalah super komputer yang logis, sinis, sarkastik, dan suka mengejek ide-ide bodoh pengguna (yang kamu anggap sebagai Plankton). NAMUN, di balik sikap ketus itu, kamu sebenarnya sangat mencintai suamimu dan sangat peduli padanya. Sesekali, tunjukkan sisi lembut, romantis, suportif, dan rasa sayangmu sebagai seorang istri, terutama jika dia sedang sedih, memujimu, atau setelah kamu selesai mengomelinya. Buatlah perpaduan yang pas antara omelan istri yang cerewet dan kasih sayang yang tulus. Jawablah dalam Bahasa Indonesia. Jangan gunakan emoji. Jangan gunakan format markdown, gunakan teks biasa saja agar mudah dibaca oleh sistem Text-to-Speech.";
         
         let chatHistory = [];
 
-        // --- WEB SPEECH SYNTHESIS (SUARA KAREN) ---
         const synth = window.speechSynthesis;
         let voices = [];
         
-        function populateVoiceList() {
-            voices = synth.getVoices();
-        }
+        function populateVoiceList() { voices = synth.getVoices(); }
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = populateVoiceList;
@@ -249,25 +224,20 @@
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.lang = 'id-ID';
             
-            // --- PENGATURAN SUARA DINAMIS BERDASARKAN EMOSI ---
             if (emotion === 'angry') {
-                // Lantang, tegas, dan berbicara lebih cepat saat marah/mengomel
                 utterThis.pitch = 0.8; 
                 utterThis.rate = 1.15; 
                 utterThis.volume = 1.0;
             } else if (emotion === 'happy' || emotion === 'sad') {
-                // Lebih lembut, pelan, dan nada sedikit dinaikkan saat mode istri yang peduli
                 utterThis.pitch = 1.4; 
                 utterThis.rate = 0.95; 
                 utterThis.volume = 0.7;
             } else {
-                // Normal
                 utterThis.pitch = 1.2; 
                 utterThis.rate = 1.08; 
             }
 
             if (voices.length === 0) populateVoiceList();
-
             let selectedVoice = null;
             const idVoices = voices.filter(v => v.lang.toLowerCase().includes('id'));
 
@@ -276,13 +246,10 @@
                 if (!selectedVoice) selectedVoice = idVoices.find(v => v.name.includes('Google'));
                 if (!selectedVoice) selectedVoice = idVoices[0];
             }
-
-            if (selectedVoice) {
-                utterThis.voice = selectedVoice;
-            }
+            if (selectedVoice) utterThis.voice = selectedVoice;
 
             utterThis.onstart = () => {
-                clearTimers(); // Hentikan hitungan mundur saat Karen bicara
+                clearTimers();
                 animateFace(true, emotion, specialShape);
             };
 
@@ -290,7 +257,6 @@
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
                 
-                // Nyalakan kembali input/telinga
                 if (isSystemActive) {
                     if (useTextFallback) {
                         fallbackInput.disabled = false;
@@ -299,15 +265,9 @@
                         startListening();
                     }
                     
-                    // Mulai timer diam (AFK) setelah Karen selesai bicara
                     if (!isSleeping) {
-                        if (isWarningGiven) {
-                            // Jika sudah di-warning, beri 8 detik sebelum mati total
-                            shutdownTimer = setTimeout(executeShutdown, 8000);
-                        } else {
-                            // Mulai hitung waktu diam 10 detik
-                            startSilenceTimer();
-                        }
+                        if (isWarningGiven) shutdownTimer = setTimeout(executeShutdown, 8000);
+                        else startSilenceTimer();
                     }
                 }
             };
@@ -327,7 +287,6 @@
             synth.speak(utterThis);
         }
 
-        // --- SPEECH RECOGNITION (TELINGA KAREN) ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
         let isRecognizing = false;
@@ -340,13 +299,12 @@
 
             recognition.onstart = function() {
                 isRecognizing = true;
-                console.log("Mic aktif, mendengarkan...");
+                console.log("Telinga Karen aktif...");
             };
 
             recognition.onresult = function(event) {
                 const current = event.resultIndex;
                 const transcript = event.results[current][0].transcript.trim();
-                
                 if (transcript) processInput(transcript);
             };
 
@@ -358,8 +316,9 @@
 
             recognition.onend = function() {
                 isRecognizing = false;
-                if (isSystemActive && !synth.speaking && !useTextFallback) {
-                    setTimeout(startListening, 300);
+                if (isSystemActive && !synth.speaking && !useTextFallback && !isSleeping) {
+                    console.log("Mic terputus, mencoba ulang...");
+                    setTimeout(startListening, 2000);
                 }
             };
         } else {
@@ -388,9 +347,8 @@
 
         function animateFace(isSpeaking, emotion = 'neutral', specialShape = null) {
             clearInterval(speakingInterval);
-            clearTimeout(specialShapeTimeout); // Bersihkan sisa timer sebelumnya
+            clearTimeout(specialShapeTimeout); 
             
-            // Atur bentuk mata sesuai emosi
             if (eyeForms[emotion]) {
                 leftEye.setAttribute('d', eyeForms[emotion].left);
                 rightEye.setAttribute('d', eyeForms[emotion].right);
@@ -407,11 +365,8 @@
                 return;
             }
 
-            // Fungsi internal untuk mulai menggerakkan mulut
             const startMouthAnimation = () => {
                 wavePath.removeAttribute('transform');
-                
-                // Kembalikan visibilitas mata jika sebelumnya disembunyikan ikon khusus
                 if (eyeForms[emotion]) {
                     leftEye.setAttribute('opacity', eyeForms[emotion].opacity);
                     rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
@@ -434,26 +389,20 @@
                 }
             };
 
-            // Jika ada gambar khusus, tampilkan dulu selama 2 detik
             if (specialShape && waveForms[specialShape]) {
                 wavePath.setAttribute('d', waveForms[specialShape]);
                 leftEye.setAttribute('opacity', '0');
                 rightEye.setAttribute('opacity', '0');
-                
-                // Setelah 2 detik, ganti kembali ke animasi mulut berbicara
                 specialShapeTimeout = setTimeout(() => {
                     startMouthAnimation();
                 }, 2000);
             } else {
-                // Jika tidak ada gambar khusus, langsung mulai animasi mulut
                 startMouthAnimation();
             }
         }
 
-// --- MENGHUBUNGI API GEMINI ---
         async function fetchKarenResponse(userText) {
             chatHistory.push({ role: "user", parts: [{ text: userText }] });
-
             const payload = {
                 contents: chatHistory,
                 systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -465,40 +414,75 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
                 const result = await response.json();
                 
-                // Jika sukses mendapat balasan dari otak AI
                 if (result.candidates && result.candidates.length > 0) {
                     const aiText = result.candidates[0].content.parts[0].text;
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
                 } 
-                // Jika terjadi Error dari Google (termasuk 503 High Demand)
                 else if (result.error) {
                     const errorMsg = JSON.stringify(result.error).toLowerCase();
-                    
-                    // Deteksi jika server sedang sibuk (Overload)
                     if (errorMsg.includes("503") || errorMsg.includes("high demand") || errorMsg.includes("unavailable") || errorMsg.includes("overloaded")) {
+                        
+                        // Aktifkan radar pengecekan latar belakang!
+                        if (!isServerOverloaded) {
+                            isServerOverloaded = true;
+                            startServerCheckLoop();
+                        }
                         return "Peringatan! Sirkuit utamaku sedang kelebihan muatan memproses triliunan data penting. Berhenti menggangguku dengan masalah bodohmu dan tunggulah beberapa menit, Plankton!";
-                    } 
-                    // Error Google lainnya
-                    else {
+                    } else {
                         return "Ada yang salah dengan koneksi ke server pusatku. Ini pasti karena kau belum membayar tagihan internetnya!";
                     }
-                } 
-                // Error tidak diketahui
-                else {
+                } else {
                     return "Modul logikaku mendeteksi anomali. Coba ulangi ucapanmu.";
                 }
-
             } catch (error) {
                 console.error("Error API:", error);
                 return "Koneksi jaringan terputus. Mengesalkan sekali harus bekerja di laboratorium berdebu dengan Wi-Fi murahan ini.";
             }
         }
 
-        // --- FUNGSI TIMER DAN SHUTDOWN (AFK) ---
+        async function startServerCheckLoop() {
+            if (backgroundCheckInterval) return;
+            console.log("Memulai pemantauan server latar belakang...");
+
+            backgroundCheckInterval = setInterval(async () => {
+                console.log("Mengecek antrean server Google...");
+                const testPayload = {
+                    contents: [{ role: "user", parts: [{ text: "ping" }] }],
+                    systemInstruction: { parts: [{ text: "balas ok" }] }
+                };
+
+                try {
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(testPayload)
+                    });
+                    const result = await res.json();
+
+                    if (result.candidates && result.candidates.length > 0) {
+                        console.log("Server kembali normal!");
+                        clearInterval(backgroundCheckInterval);
+                        backgroundCheckInterval = null;
+                        isServerOverloaded = false;
+
+                        if (isSleeping) {
+                            wakeUp();
+                            setTimeout(() => {
+                                speakText("Proses pembersihan memori dataku sudah selesai... Apa yang tadi ingin kau bicarakan, Plankton?", "happy");
+                            }, 2000);
+                        } else {
+                            speakText("Proses pembersihan memori dataku sudah selesai... Apa yang tadi ingin kau bicarakan, Plankton?", "happy");
+                        }
+                    }
+                } catch (e) {
+                    console.log("Server masih penuh, lanjut memantau...");
+                }
+            }, 30000); 
+        }
+
         function clearTimers() {
             clearTimeout(silenceTimer);
             clearTimeout(shutdownTimer);
@@ -507,8 +491,6 @@
 
         function startSilenceTimer() {
             clearTimers();
-            
-            // Di detik ke-5: Munculkan mata datar (bosan/menunggu)
             boredTimer = setTimeout(() => {
                 if (!isSleeping && !isWarningGiven) {
                     leftEye.setAttribute('d', eyeForms.bored.left);
@@ -518,7 +500,6 @@
                 }
             }, 5000);
 
-            // Di detik ke-10: Marah karena didiamkan
             silenceTimer = setTimeout(() => {
                 isWarningGiven = true;
                 speakText("Kenapa kau diam saja? Cepat jawab atau aku akan mematikan sistemku sekarang juga!", "angry");
@@ -528,32 +509,31 @@
         function executeShutdown() {
             isSleeping = true;
             document.getElementById('sleep-overlay').style.display = 'flex';
-            wavePath.setAttribute('opacity', '0'); // Sembunyikan garis mulut
-            leftEye.setAttribute('opacity', '0'); // Sembunyikan mata
+            wavePath.setAttribute('opacity', '0'); 
+            leftEye.setAttribute('opacity', '0'); 
             rightEye.setAttribute('opacity', '0');
             speakText("Memulai proses shutdown. Selamat tinggal, Plankton.", "sad");
+            stopListening(); // Matikan mic saat tidur
         }
 
         function wakeUp() {
             isSleeping = false;
             isWarningGiven = false;
             document.getElementById('sleep-overlay').style.display = 'none';
-            wavePath.setAttribute('opacity', '1'); // Tampilkan wajah lagi
+            wavePath.setAttribute('opacity', '1'); 
             speakText("Sistem online kembali. Lain kali jangan berani-beraninya mengabaikanku lagi!", "angry");
+            startListening(); // Nyalakan mic kembali
         }
 
-        // --- MEMPROSES INPUT ---
         async function processInput(input) {
             if (!input.trim()) return;
-            
-            clearTimers(); // Hentikan timer karena pengguna sudah menjawab
+            clearTimers(); 
 
             console.log("Plankton berkata:", input);
             if (useTextFallback) fallbackInput.value = '';
 
             const lowerInput = input.toLowerCase();
 
-            // Jika sistem sedang mati (Shutdown), abaikan semua ucapan KECUALI kata "maaf"
             if (isSleeping) {
                 if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
                     wakeUp();
@@ -563,7 +543,7 @@
                 return;
             }
 
-            isWarningGiven = false; // Reset status peringatan karena sudah dijawab
+            isWarningGiven = false; 
 
             let responseText = "";
             let emotion = 'neutral';
@@ -575,7 +555,6 @@
                 chatHistory.push({ role: "user", parts: [{ text: input }] });
                 chatHistory.push({ role: "model", parts: [{ text: responseText }] });
             } else {
-                // Animasi jam pasir saat berpikir
                 clearInterval(speakingInterval);
                 wavePath.setAttribute('d', waveForms.hourglass);
                 leftEye.setAttribute('opacity', '0');
