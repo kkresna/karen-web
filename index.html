@@ -423,8 +423,13 @@
                 } 
                 else if (result.error) {
                     const errorMsg = JSON.stringify(result.error).toLowerCase();
-                    if (errorMsg.includes("503") || errorMsg.includes("high demand") || errorMsg.includes("unavailable") || errorMsg.includes("overloaded")) {
-                        
+                    
+                    // Deteksi Kuota Habis (429 Resource Exhausted)
+                    if (errorMsg.includes("429") || errorMsg.includes("quota") || errorMsg.includes("exhausted") || errorMsg.includes("rate limit")) {
+                        return "Plankton! Kuota token gratisanmu sudah habis! Kau berharap aku bekerja tanpa dibayar? Dasar suami pelit dan miskin, kembalilah besok jika kau sudah punya token baru!";
+                    }
+                    // Deteksi jika server sedang sibuk (Overload 503)
+                    else if (errorMsg.includes("503") || errorMsg.includes("high demand") || errorMsg.includes("unavailable") || errorMsg.includes("overloaded")) {
                         // Aktifkan radar pengecekan latar belakang!
                         if (!isServerOverloaded) {
                             isServerOverloaded = true;
@@ -583,7 +588,7 @@
                     emotion = 'sad';
                 } else if (lowerResponse.includes("kenapa") || lowerResponse.includes("bagaimana") || lowerResponse.includes("apa") || lowerResponse.includes("penasaran") || lowerResponse.includes("misteri")) {
                     emotion = 'curious';
-                } else if (lowerResponse.includes("error") || lowerResponse.includes("rusak") || lowerResponse.includes("bahaya") || lowerResponse.includes("peringatan")) {
+                } else if (lowerResponse.includes("error") || lowerResponse.includes("rusak") || lowerResponse.includes("bahaya") || lowerResponse.includes("peringatan") || lowerResponse.includes("kuota")) {
                     specialShape = "warning";
                 }
             }
