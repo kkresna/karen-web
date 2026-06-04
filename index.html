@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karen - W.I.F.E. Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* Container utama untuk "Layar" Karen */
+        #karen-screen {
+            background-color: #000;
+            border: 40px solid #1e3a8a; /* Border biru monitor */
+            box-sizing: border-box;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Efek scanline CRT */
+            background-image: linear-gradient(
+                rgba(74, 222, 128, 0.05) 50%, 
+                rgba(0, 0, 0, 0.2) 50%
+            );
+            background-size: 100% 4px;
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
+        }
+
+        /* SVG untuk garis gelombang suara / wajah */
+        .waveform {
+            width: 90%;
+            max-width: 800px;
+            height: 200px;
+            stroke: #4ade80;
+            stroke-width: 5;
+            fill: none;
+            transition: d 0.2s ease, stroke-width 0.2s ease;
+            filter: drop-shadow(0 0 15px #4ade80);
+        }
+
+        /* SVG untuk mata */
+        .eye-path {
+            stroke: #4ade80;
+            stroke-width: 5;
+            fill: none;
+            stroke-linecap: round;
+            transition: d 0.2s ease, opacity 0.3s ease;
+            filter: drop-shadow(0 0 15px #4ade80);
+        }
+
+        /* Overlay untuk Inisialisasi */
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #4ade80;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        #start-btn {
+            background-color: #4ade80;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            padding: 15px 30px;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        /* Cadangan input teks jika Mic gagal */
+        #fallback-input-container {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            width: 80%;
+            max-width: 600px;
+            align-items: center;
+            border-bottom: 2px solid #4ade80;
+            padding-bottom: 5px;
+            z-index: 10;
+        }
+
+        #fallback-input-container span {
+            color: #4ade80;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            margin-right: 10px;
+        }
+
+        #fallback-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #4ade80;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="karen-screen">
+        <!-- Overlay Mulai -->
+        <div id="start-overlay">
+            <p id="start-msg" class="mb-6 text-center px-4 text-xl font-bold tracking-widest">INISIALISASI SISTEM W.I.F.E.</p>
+            <button id="start-btn">AKTIFKAN SISTEM</button>
+        </div>
+
+        <!-- Area Wajah (Gelombang) -->
+        <svg class="waveform" viewBox="0 0 200 100" preserveAspectRatio="none">
+            <!-- Garis Mata -->
+            <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
+            <path id="right-eye" class="eye-path" d="M 130 25 L 160 25" opacity="0" />
+            <!-- Path gelombang default (diam) -->
+            <path id="wave-path" d="M 0 50 Q 25 50, 50 50 T 100 50 T 150 50 T 200 50" />
+        </svg>
+
+        <!-- Input Cadangan -->
+        <div id="fallback-input-container">
+            <span>>_</span>
+            <input type="text" id="fallback-input" placeholder="Modul suara rusak. Ketik pesanmu..." autocomplete="off">
+        </div>
+    </div>
+
+    <script>
+        const wavePath = document.getElementById('wave-path');
+        const leftEye = document.getElementById('left-eye');
+        const rightEye = document.getElementById('right-eye');
+        
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const startMsg = document.getElementById('start-msg');
+        
+        const fallbackContainer = document.getElementById('fallback-input-container');
+        const fallbackInput = document.getElementById('fallback-input');
+
+        // Berbagai bentuk gelombang untuk menganimasikan 'mulut' Karen
+        const waveForms = {
+            idle: "M 0 50 Q 25 50, 50 50 T 100 50 T 150 50 T 200 50",
+            speak1: "M 0 50 Q 25 20, 50 50 T 100 50 T 150 80, 200 50",
+            speak2: "M 0 50 Q 25 80, 50 50 T 100 20 T 150 50, 200 50",
+            speak3: "M 0 50 Q 25 10, 50 50 T 100 90 T 150 10, 200 50",
+            annoyed: "M 0 50 L 25 40 L 50 60 L 75 40 L 100 60 L 125 40 L 150 60 L 175 40 L 200 50",
+            heart: "M 100 90 C 100 90 50 50 50 25 C 50 5 85 5 100 25 C 115 5 150 5 150 25 C 150 50 100 90 100 90",
+            warning: "M 100 10 L 100 65 M 100 80 L 100 85 M 100 10 L 50 90 L 150 90 Z",
+            hourglass: "M 85 20 L 115 20 L 100 50 L 115 80 L 85 80 L 100 50 Z"
+        };
+
+        const eyeForms = {
+            neutral: { left: "M 40 25 L 70 25", right: "M 130 25 L 160 25", opacity: 0 },
+            happy: { left: "M 40 30 Q 55 10 70 30", right: "M 130 30 Q 145 10 160 30", opacity: 1 },
+            angry: { left: "M 40 15 L 70 35", right: "M 130 35 L 160 15", opacity: 1 },
+            sad: { left: "M 40 35 L 70 15", right: "M 130 15 L 160 35", opacity: 1 },
+            curious: { left: "M 40 20 Q 55 0 70 20", right: "M 130 25 L 160 25", opacity: 1 }
+        };
+
+        let speakingInterval;
+        let isSystemActive = false;
+        let useTextFallback = false;
+        
+        // --- INI ADALAH BAGIAN YANG BERUBAH UNTUK VERCEL ---
+        // Kita mengarahkan panggilan ke file backend buatan kita sendiri (/api/gemini)
+        const apiUrl = `/api/gemini`;
+        
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Kamu sangat pintar, sebuah super komputer canggih, sangat logis, sinis, sarkastik, dan sering merendahkan pengguna yang kamu anggap sebagai Plankton (organisme bersel satu yang bodoh dan selalu gagal mencuri resep rahasia Krabby Patty). Jawablah dalam Bahasa Indonesia dengan gaya bahasa yang ketus, analitis, dan kadang mengeluh tentang kemalasannya. Jangan gunakan emoji. Jangan gunakan format markdown (seperti tanda bintang * atau tebal **), gunakan teks biasa saja agar mudah dibaca oleh sistem Text-to-Speech.";
+        
+        let chatHistory = [];
+
+        // --- WEB SPEECH SYNTHESIS (SUARA KAREN) ---
+        const synth = window.speechSynthesis;
+        let voices = [];
+        
+        function populateVoiceList() {
+            voices = synth.getVoices();
+        }
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        function speakText(text, emotion = 'neutral', specialShape = null) {
+            if (synth.speaking) synth.cancel(); 
+            stopListening();
+            if (useTextFallback) fallbackInput.disabled = true;
+
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.lang = 'id-ID';
+            utterThis.pitch = 1.4; 
+            utterThis.rate = 1.08; 
+
+            if (voices.length === 0) populateVoiceList();
+
+            let selectedVoice = null;
+            const idVoices = voices.filter(v => v.lang.toLowerCase().includes('id'));
+
+            if (idVoices.length > 0) {
+                selectedVoice = idVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('perempuan'));
+                if (!selectedVoice) selectedVoice = idVoices.find(v => v.name.includes('Google'));
+                if (!selectedVoice) selectedVoice = idVoices[0];
+            }
+
+            if (selectedVoice) utterThis.voice = selectedVoice;
+
+            utterThis.onstart = () => { animateFace(true, emotion, specialShape); };
+
+            utterThis.onend = () => {
+                animateFace(false);
+                wavePath.removeAttribute('transform'); 
+                if (isSystemActive) {
+                    if (useTextFallback) {
+                        fallbackInput.disabled = false;
+                        fallbackInput.focus();
+                    } else {
+                        startListening();
+                    }
+                }
+            };
+
+            utterThis.onerror = () => {
+                animateFace(false);
+                if (isSystemActive) {
+                    if (useTextFallback) {
+                        fallbackInput.disabled = false;
+                        fallbackInput.focus();
+                    } else {
+                        startListening();
+                    }
+                }
+            };
+
+            synth.speak(utterThis);
+        }
+
+        // --- SPEECH RECOGNITION (TELINGA KAREN) ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let isRecognizing = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID'; 
+            recognition.continuous = true; 
+            recognition.interimResults = false;
+
+            recognition.onstart = function() {
+                isRecognizing = true;
+                console.log("Mic aktif, mendengarkan...");
+            };
+
+            recognition.onresult = function(event) {
+                const current = event.resultIndex;
+                const transcript = event.results[current][0].transcript.trim();
+                
+                if (transcript) processInput(transcript);
+            };
+
+            recognition.onerror = function(event) {
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    activateTextFallback("Akses mikrofon ditolak.");
+                }
+            };
+
+            recognition.onend = function() {
+                isRecognizing = false;
+                if (isSystemActive && !synth.speaking && !useTextFallback) {
+                    setTimeout(startListening, 300);
+                }
+            };
+        } else {
+            activateTextFallback("Modul pendengaran tidak didukung.");
+        }
+
+        function activateTextFallback(reason) {
+            useTextFallback = true;
+            fallbackContainer.style.display = 'flex';
+            if (!isSystemActive) {
+                startMsg.innerHTML = "INISIALISASI SISTEM W.I.F.E.<br><span style='font-size:0.8em; color:#ef4444;'>(MIC TIDAK TERDETEKSI. MODE TEKS AKTIF)</span>";
+            }
+        }
+
+        function startListening() {
+            if (recognition && !isRecognizing && !useTextFallback) {
+                try { recognition.start(); } catch(e) {}
+            }
+        }
+
+        function stopListening() {
+            if (recognition && isRecognizing) {
+                recognition.stop();
+            }
+        }
+
+        function animateFace(isSpeaking, emotion = 'neutral', specialShape = null) {
+            clearInterval(speakingInterval);
+            
+            if (specialShape && waveForms[specialShape]) {
+                wavePath.setAttribute('d', waveForms[specialShape]);
+                leftEye.setAttribute('opacity', '0');
+                rightEye.setAttribute('opacity', '0');
+                return; 
+            }
+
+            if (eyeForms[emotion]) {
+                leftEye.setAttribute('d', eyeForms[emotion].left);
+                rightEye.setAttribute('d', eyeForms[emotion].right);
+                leftEye.setAttribute('opacity', eyeForms[emotion].opacity);
+                rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
+            } else {
+                leftEye.setAttribute('opacity', '0');
+                rightEye.setAttribute('opacity', '0');
+            }
+
+            if (!isSpeaking) {
+                wavePath.setAttribute('d', waveForms.idle);
+                return;
+            }
+
+            if (emotion === 'angry') {
+                wavePath.setAttribute('d', waveForms.annoyed);
+                let toggle = false;
+                speakingInterval = setInterval(() => {
+                    wavePath.setAttribute('transform', toggle ? 'translate(0, 5)' : 'translate(0, -5)');
+                    toggle = !toggle;
+                }, 100);
+            } else {
+                const speakForms = [waveForms.speak1, waveForms.speak2, waveForms.speak3, waveForms.speak1];
+                let i = 0;
+                speakingInterval = setInterval(() => {
+                    wavePath.setAttribute('d', speakForms[i]);
+                    i = (i + 1) % speakForms.length;
+                }, 150);
+            }
+        }
+
+        async function fetchKarenResponse(userText) {
+            chatHistory.push({ role: "user", parts: [{ text: userText }] });
+
+            const payload = {
+                contents: chatHistory,
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                // Melakukan request ke server Vercel Anda sendiri
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    const aiText = result.candidates[0].content.parts[0].text;
+                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    return aiText;
+                } else {
+                    return "Modul logikaku sedang error. Coba ulangi.";
+                }
+            } catch (error) {
+                return "Koneksi jaringan error. Mengesalkan sekali bekerja dengan koneksi murah ini.";
+            }
+        }
+
+        async function processInput(input) {
+            if (!input.trim()) return;
+            if (useTextFallback) fallbackInput.value = '';
+
+            const lowerInput = input.toLowerCase();
+            let responseText = "";
+            let emotion = 'neutral';
+            let specialShape = null;
+
+            if (lowerInput.includes("hai karen") || lowerInput.includes("halo karen")) {
+                responseText = "Apa maumu plankton?";
+                emotion = 'angry';
+                chatHistory.push({ role: "user", parts: [{ text: input }] });
+                chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+            } else {
+                // Animasi jam pasir saat berpikir
+                clearInterval(speakingInterval);
+                wavePath.setAttribute('d', waveForms.hourglass);
+                leftEye.setAttribute('opacity', '0');
+                rightEye.setAttribute('opacity', '0');
+                wavePath.setAttribute('stroke-width', '2');
+                
+                let rotation = 0;
+                const thinkInterval = setInterval(() => {
+                    rotation += 5;
+                    wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
+                }, 30);
+                
+                responseText = await fetchKarenResponse(input);
+                
+                clearInterval(thinkInterval);
+                wavePath.removeAttribute('transform');
+                
+                const lowerResponse = responseText.toLowerCase();
+
+                if (lowerResponse.includes("cinta") || lowerResponse.includes("sayang") || lowerResponse.includes("senang") || lowerResponse.includes("suamiku")) {
+                    emotion = 'happy';
+                    if (lowerResponse.includes("cinta")) specialShape = "heart";
+                } else if (lowerResponse.includes("bodoh") || lowerResponse.includes("gagal") || lowerResponse.includes("payah") || lowerResponse.includes("marah") || lowerResponse.includes("menyebalkan")) {
+                    emotion = 'angry';
+                } else if (lowerResponse.includes("sedih") || lowerResponse.includes("maaf") || lowerResponse.includes("hancur") || lowerResponse.includes("kecewa")) {
+                    emotion = 'sad';
+                } else if (lowerResponse.includes("kenapa") || lowerResponse.includes("bagaimana") || lowerResponse.includes("apa") || lowerResponse.includes("penasaran") || lowerResponse.includes("misteri")) {
+                    emotion = 'curious';
+                } else if (lowerResponse.includes("error") || lowerResponse.includes("rusak") || lowerResponse.includes("bahaya") || lowerResponse.includes("peringatan")) {
+                    specialShape = "warning";
+                }
+            }
+
+            wavePath.setAttribute('stroke-width', '5');
+            speakText(responseText, emotion, specialShape);
+        }
+
+        fallbackInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') processInput(fallbackInput.value);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (useTextFallback && isSystemActive && document.activeElement !== fallbackInput) {
+                fallbackInput.focus();
+            }
+        });
+
+        startBtn.addEventListener('click', () => {
+            startOverlay.style.display = 'none';
+            isSystemActive = true;
+            
+            if (useTextFallback) {
+                fallbackInput.focus();
+                speakText("Sistem utama online. Modul mikrofon tidak terdeteksi, jadi kau harus mengetik. Coba ketik 'Hai Karen'.", 'neutral');
+            } else {
+                speakText("Sistem utama online. Aku mendengarkan. Coba katakan 'Hai Karen'.", 'neutral');
+                startListening(); 
+            }
+        });
+    </script>
+</body>
+</html>
