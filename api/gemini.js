@@ -4,8 +4,8 @@ module.exports = async function handler(req, res) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     
-    // Kita gunakan model gemini-1.5-flash-latest
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    // KITA GANTI KE MODEL TERBARU YANG AKTIF: gemini-2.5-flash
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     try {
         const response = await fetch(apiUrl, {
