@@ -450,6 +450,7 @@
             }
         }
 
+// --- MENGHUBUNGI API GEMINI ---
         async function fetchKarenResponse(userText) {
             chatHistory.push({ role: "user", parts: [{ text: userText }] });
 
@@ -459,7 +460,6 @@
             };
 
             try {
-                // Melakukan request ke server Vercel Anda sendiri
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -467,15 +467,34 @@
                 });
                 
                 const result = await response.json();
+                
+                // Jika sukses mendapat balasan dari otak AI
                 if (result.candidates && result.candidates.length > 0) {
                     const aiText = result.candidates[0].content.parts[0].text;
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
-                } else {
-                    return "Modul logikaku sedang error. Coba ulangi.";
+                } 
+                // Jika terjadi Error dari Google (termasuk 503 High Demand)
+                else if (result.error) {
+                    const errorMsg = JSON.stringify(result.error).toLowerCase();
+                    
+                    // Deteksi jika server sedang sibuk (Overload)
+                    if (errorMsg.includes("503") || errorMsg.includes("high demand") || errorMsg.includes("unavailable") || errorMsg.includes("overloaded")) {
+                        return "Peringatan! Sirkuit utamaku sedang kelebihan muatan memproses triliunan data penting. Berhenti menggangguku dengan masalah bodohmu dan tunggulah beberapa menit, Plankton!";
+                    } 
+                    // Error Google lainnya
+                    else {
+                        return "Ada yang salah dengan koneksi ke server pusatku. Ini pasti karena kau belum membayar tagihan internetnya!";
+                    }
+                } 
+                // Error tidak diketahui
+                else {
+                    return "Modul logikaku mendeteksi anomali. Coba ulangi ucapanmu.";
                 }
+
             } catch (error) {
-                return "Koneksi jaringan error. Mengesalkan sekali bekerja dengan koneksi murah ini.";
+                console.error("Error API:", error);
+                return "Koneksi jaringan terputus. Mengesalkan sekali harus bekerja di laboratorium berdebu dengan Wi-Fi murahan ini.";
             }
         }
 
