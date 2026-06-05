@@ -154,7 +154,7 @@
 
         <div id="fallback-input-container">
             <span>>_</span>
-            <input type="text" id="fallback-input" placeholder="Modul suara rusak. Ketik pesanmu..." autocomplete="off">
+            <input type="text" id="fallback-input" placeholder="Ketik pesanmu di sini..." autocomplete="off">
         </div>
     </div>
 
@@ -218,8 +218,10 @@
 
         function speakText(text, emotion = 'neutral', specialShape = null) {
             if (synth.speaking) synth.cancel(); 
-            stopListening();
-            if (useTextFallback) fallbackInput.disabled = true;
+            
+            // OPTIMASI: Jangan stop mic sepenuhnya jika di mobile, biar nggak bunyi bip terus
+            // Kita hanya akan 'mengabaikan' input saat bicara
+            isKarenSpeaking = true; 
 
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.lang = 'id-ID';
@@ -256,30 +258,12 @@
             utterThis.onend = () => {
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
+                isKarenSpeaking = false; 
                 
                 if (isSystemActive) {
-                    if (useTextFallback) {
-                        fallbackInput.disabled = false;
-                        fallbackInput.focus();
-                    } else {
-                        startListening();
-                    }
-                    
                     if (!isSleeping) {
                         if (isWarningGiven) shutdownTimer = setTimeout(executeShutdown, 8000);
                         else startSilenceTimer();
-                    }
-                }
-            };
-
-            utterThis.onerror = () => {
-                animateFace(false);
-                if (isSystemActive) {
-                    if (useTextFallback) {
-                        fallbackInput.disabled = false;
-                        fallbackInput.focus();
-                    } else {
-                        startListening();
                     }
                 }
             };
@@ -290,6 +274,7 @@
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
         let isRecognizing = false;
+        let isKarenSpeaking = false; // Flag baru untuk mencegah mic memproses suara Karen sendiri
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
@@ -299,49 +284,42 @@
 
             recognition.onstart = function() {
                 isRecognizing = true;
-                console.log("Telinga Karen aktif...");
+                console.log("Mendengarkan...");
             };
 
             recognition.onresult = function(event) {
+                // Jangan proses apa pun jika Karen sedang bicara
+                if (isKarenSpeaking) return;
+
                 const current = event.resultIndex;
                 const transcript = event.results[current][0].transcript.trim();
                 if (transcript) processInput(transcript);
             };
 
             recognition.onerror = function(event) {
-                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                    activateTextFallback("Akses mikrofon ditolak.");
-                }
+                console.log("Mic Error:", event.error);
+                if (event.error === 'not-allowed') activateTextFallback();
             };
 
             recognition.onend = function() {
                 isRecognizing = false;
-                if (isSystemActive && !synth.speaking && !useTextFallback && !isSleeping) {
-                    console.log("Mic terputus, mencoba ulang...");
-                    setTimeout(startListening, 2000);
+                // Hanya restart jika benar-benar mati dan bukan karena Karen bicara
+                if (isSystemActive && !isSleeping && !useTextFallback) {
+                    setTimeout(startListening, 100);
                 }
             };
         } else {
-            activateTextFallback("Modul pendengaran tidak didukung.");
+            activateTextFallback();
         }
 
-        function activateTextFallback(reason) {
+        function activateTextFallback() {
             useTextFallback = true;
             fallbackContainer.style.display = 'flex';
-            if (!isSystemActive) {
-                startMsg.innerHTML = "INISIALISASI SISTEM W.I.F.E.<br><span style='font-size:0.8em; color:#ef4444;'>(MIC TIDAK TERDETEKSI. MODE TEKS AKTIF)</span>";
-            }
         }
 
         function startListening() {
             if (recognition && !isRecognizing && !useTextFallback) {
                 try { recognition.start(); } catch(e) {}
-            }
-        }
-
-        function stopListening() {
-            if (recognition && isRecognizing) {
-                recognition.stop();
             }
         }
 
@@ -423,68 +401,36 @@
                 } 
                 else if (result.error) {
                     const errorMsg = JSON.stringify(result.error).toLowerCase();
-                    
-                    // Deteksi Kuota Habis (429 Resource Exhausted)
-                    if (errorMsg.includes("429") || errorMsg.includes("quota") || errorMsg.includes("exhausted") || errorMsg.includes("rate limit")) {
-                        return "Plankton! Kuota token gratisanmu sudah habis! Kau berharap aku bekerja tanpa dibayar? Dasar suami pelit dan miskin, kembalilah besok jika kau sudah punya token baru!";
+                    if (errorMsg.includes("429")) return "Plankton! Kuota gratisanmu habis! Dasar miskin, kembalilah besok!";
+                    if (errorMsg.includes("503") || errorMsg.includes("high demand")) {
+                        if (!isServerOverloaded) { isServerOverloaded = true; startServerCheckLoop(); }
+                        return "Sirkuitku kelebihan beban! Tunggu sebentar!";
                     }
-                    // Deteksi jika server sedang sibuk (Overload 503)
-                    else if (errorMsg.includes("503") || errorMsg.includes("high demand") || errorMsg.includes("unavailable") || errorMsg.includes("overloaded")) {
-                        // Aktifkan radar pengecekan latar belakang!
-                        if (!isServerOverloaded) {
-                            isServerOverloaded = true;
-                            startServerCheckLoop();
-                        }
-                        return "Peringatan! Sirkuit utamaku sedang kelebihan muatan memproses triliunan data penting. Berhenti menggangguku dengan masalah bodohmu dan tunggulah beberapa menit, Plankton!";
-                    } else {
-                        return "Ada yang salah dengan koneksi ke server pusatku. Ini pasti karena kau belum membayar tagihan internetnya!";
-                    }
-                } else {
-                    return "Modul logikaku mendeteksi anomali. Coba ulangi ucapanmu.";
+                    return "Koneksi ke otak utamaku terputus!";
                 }
+                return "Anomali terdeteksi.";
             } catch (error) {
-                console.error("Error API:", error);
-                return "Koneksi jaringan terputus. Mengesalkan sekali harus bekerja di laboratorium berdebu dengan Wi-Fi murahan ini.";
+                return "Wi-Fi laboratorium ini sampah sekali!";
             }
         }
 
         async function startServerCheckLoop() {
             if (backgroundCheckInterval) return;
-            console.log("Memulai pemantauan server latar belakang...");
-
             backgroundCheckInterval = setInterval(async () => {
-                console.log("Mengecek antrean server Google...");
-                const testPayload = {
-                    contents: [{ role: "user", parts: [{ text: "ping" }] }],
-                    systemInstruction: { parts: [{ text: "balas ok" }] }
-                };
-
                 try {
                     const res = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(testPayload)
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
                     });
                     const result = await res.json();
-
-                    if (result.candidates && result.candidates.length > 0) {
-                        console.log("Server kembali normal!");
+                    if (result.candidates) {
                         clearInterval(backgroundCheckInterval);
                         backgroundCheckInterval = null;
                         isServerOverloaded = false;
-
-                        if (isSleeping) {
-                            wakeUp();
-                            setTimeout(() => {
-                                speakText("Proses pembersihan memori dataku sudah selesai... Apa yang tadi ingin kau bicarakan, Plankton?", "happy");
-                            }, 2000);
-                        } else {
-                            speakText("Proses pembersihan memori dataku sudah selesai... Apa yang tadi ingin kau bicarakan, Plankton?", "happy");
-                        }
+                        speakText("Memori dataku sudah bersih. Apa yang tadi kau mau, Plankton?", "happy");
                     }
-                } catch (e) {
-                    console.log("Server masih penuh, lanjut memantau...");
-                }
+                } catch (e) {}
             }, 30000); 
         }
 
@@ -507,7 +453,7 @@
 
             silenceTimer = setTimeout(() => {
                 isWarningGiven = true;
-                speakText("Kenapa kau diam saja? Cepat jawab atau aku akan mematikan sistemku sekarang juga!", "angry");
+                speakText("Cepat jawab atau aku tidur!", "angry");
             }, 10000);
         }
 
@@ -517,8 +463,7 @@
             wavePath.setAttribute('opacity', '0'); 
             leftEye.setAttribute('opacity', '0'); 
             rightEye.setAttribute('opacity', '0');
-            speakText("Memulai proses shutdown. Selamat tinggal, Plankton.", "sad");
-            stopListening(); // Matikan mic saat tidur
+            speakText("Shutting down. Bye.", "sad");
         }
 
         function wakeUp() {
@@ -526,25 +471,17 @@
             isWarningGiven = false;
             document.getElementById('sleep-overlay').style.display = 'none';
             wavePath.setAttribute('opacity', '1'); 
-            speakText("Sistem online kembali. Lain kali jangan berani-beraninya mengabaikanku lagi!", "angry");
-            startListening(); // Nyalakan mic kembali
+            speakText("Aku bangun. Jangan abaikan aku lagi!", "angry");
         }
 
         async function processInput(input) {
-            if (!input.trim()) return;
+            if (!input.trim() || isKarenSpeaking) return;
             clearTimers(); 
-
-            console.log("Plankton berkata:", input);
-            if (useTextFallback) fallbackInput.value = '';
 
             const lowerInput = input.toLowerCase();
 
             if (isSleeping) {
-                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
-                    wakeUp();
-                } else {
-                    console.log("Sistem offline. Menunggu permintaan maaf.");
-                }
+                if (lowerInput.includes("maaf")) wakeUp();
                 return;
             }
 
@@ -557,14 +494,11 @@
             if (lowerInput.includes("hai karen") || lowerInput.includes("halo karen")) {
                 responseText = "Apa maumu plankton?";
                 emotion = 'angry';
-                chatHistory.push({ role: "user", parts: [{ text: input }] });
-                chatHistory.push({ role: "model", parts: [{ text: responseText }] });
             } else {
                 clearInterval(speakingInterval);
                 wavePath.setAttribute('d', waveForms.hourglass);
                 leftEye.setAttribute('opacity', '0');
                 rightEye.setAttribute('opacity', '0');
-                wavePath.setAttribute('stroke-width', '2');
                 
                 let rotation = 0;
                 const thinkInterval = setInterval(() => {
@@ -578,22 +512,18 @@
                 wavePath.removeAttribute('transform');
                 
                 const lowerResponse = responseText.toLowerCase();
-
-                if (lowerResponse.includes("cinta") || lowerResponse.includes("sayang") || lowerResponse.includes("senang") || lowerResponse.includes("suamiku")) {
+                if (lowerResponse.includes("cinta") || lowerResponse.includes("sayang")) {
                     emotion = 'happy';
                     if (lowerResponse.includes("cinta")) specialShape = "heart";
-                } else if (lowerResponse.includes("bodoh") || lowerResponse.includes("gagal") || lowerResponse.includes("payah") || lowerResponse.includes("marah") || lowerResponse.includes("menyebalkan")) {
+                } else if (lowerResponse.includes("bodoh") || lowerResponse.includes("marah")) {
                     emotion = 'angry';
-                } else if (lowerResponse.includes("sedih") || lowerResponse.includes("maaf") || lowerResponse.includes("hancur") || lowerResponse.includes("kecewa")) {
+                } else if (lowerResponse.includes("sedih") || lowerResponse.includes("maaf")) {
                     emotion = 'sad';
-                } else if (lowerResponse.includes("kenapa") || lowerResponse.includes("bagaimana") || lowerResponse.includes("apa") || lowerResponse.includes("penasaran") || lowerResponse.includes("misteri")) {
-                    emotion = 'curious';
-                } else if (lowerResponse.includes("error") || lowerResponse.includes("rusak") || lowerResponse.includes("bahaya") || lowerResponse.includes("peringatan") || lowerResponse.includes("kuota")) {
+                } else if (lowerResponse.includes("error") || lowerResponse.includes("bahaya")) {
                     specialShape = "warning";
                 }
             }
 
-            wavePath.setAttribute('stroke-width', '5');
             speakText(responseText, emotion, specialShape);
         }
 
@@ -601,23 +531,11 @@
             if (e.key === 'Enter') processInput(fallbackInput.value);
         });
 
-        document.addEventListener('keydown', (e) => {
-            if (useTextFallback && isSystemActive && document.activeElement !== fallbackInput) {
-                fallbackInput.focus();
-            }
-        });
-
         startBtn.addEventListener('click', () => {
             startOverlay.style.display = 'none';
             isSystemActive = true;
-            
-            if (useTextFallback) {
-                fallbackInput.focus();
-                speakText("Sistem utama online. Modul mikrofon tidak terdeteksi, jadi kau harus mengetik. Coba ketik 'Hai Karen'.", 'neutral');
-            } else {
-                speakText("Sistem utama online. Aku mendengarkan. Coba katakan 'Hai Karen'.", 'neutral');
-                startListening(); 
-            }
+            speakText("Sistem online. Aku mendengarkan.", 'neutral');
+            startListening(); 
         });
     </script>
 </body>
