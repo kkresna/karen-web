@@ -97,22 +97,35 @@
             box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
         }
 
-        @keyframes pulse-red {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        #sleep-overlay {
-            display: none; 
+        #mic-control-btn {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #000;
-            z-index: 60;
-            flex-direction: column;
+            bottom: 100px;
+            background: #111;
+            border: 2px solid #1e3a8a;
+            color: #4ade80;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            z-index: 80;
+            box-shadow: 0 0 15px rgba(30, 58, 138, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #mic-control-btn.active {
+            border-color: #ef4444;
             color: #ef4444;
-            font-family: 'Share Tech Mono', monospace;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+            animation: pulse-red-btn 1.5s infinite;
+        }
+
+        @keyframes pulse-red-btn {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
 
         #fallback-input-container {
@@ -147,23 +160,22 @@
 </head>
 <body>
     <div id="karen-screen">
-        <!-- Overlay Mulai ala Laboratorium Plankton -->
         <div id="start-overlay">
-            <p id="start-msg" class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.0</p>
+            <p id="start-msg" class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.1</p>
             <p class="mb-6 text-sm text-gray-500 tracking-wider">MASUKKAN KODE AKSES ENKRIPSI INTI W.I.F.E.</p>
             
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
-                <!-- Input disembunyikan pakai type="password" -->
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
             </div>
             <p id="error-login-msg" class="text-red-500 text-xs tracking-wide hidden">KODE AKSES INVALID! COBA LAGI, PLANKTON!</p>
         </div>
 
-        <div id="sleep-overlay">
-            <p class="text-4xl font-bold tracking-widest" style="animation: pulse-red 2s infinite;">SYSTEM SHUTDOWN</p>
-            <p class="text-lg mt-4 text-green-400 opacity-70">(Katakan "Maaf" untuk mengaktifkan kembali)</p>
-        </div>
+        <button id="mic-control-btn" style="display: none;">
+            <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 0 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+            </svg>
+        </button>
 
         <svg class="waveform" viewBox="0 0 200 100" preserveAspectRatio="none">
             <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
@@ -173,7 +185,7 @@
 
         <div id="fallback-input-container">
             <span>>_</span>
-            <input type="text" id="fallback-input" placeholder="Ketik pesanmu di sini..." autocomplete="off">
+            <input type="text" id="fallback-input" placeholder="Ketik pesan atau aktifkan mic..." autocomplete="off">
         </div>
     </div>
 
@@ -183,6 +195,7 @@
         const rightEye = document.getElementById('right-eye');
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
+        const micBtn = document.getElementById('mic-control-btn');
         const userApiKeyInput = document.getElementById('user-api-key');
         const errorLoginMsg = document.getElementById('error-login-msg');
         const fallbackContainer = document.getElementById('fallback-input-container');
@@ -212,13 +225,7 @@
         let specialShapeTimeout; 
         let isSystemActive = false;
         let useTextFallback = false;
-        let SAVED_USER_API_KEY = ""; // Variabel penyimpan kunci user
-        
-        let silenceTimer;
-        let shutdownTimer;
-        let boredTimer;
-        let isSleeping = false;
-        let isWarningGiven = false;
+        let SAVED_USER_API_KEY = ""; 
         
         let backgroundCheckInterval = null;
         let isServerOverloaded = false;
@@ -227,7 +234,6 @@
         const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu adalah super komputer yang logis, sinis, sarkastik, dan suka mengejek ide-ide bodoh pengguna (yang kamu anggap sebagai Plankton). NAMUN, di balik sikap ketus itu, kamu sebenarnya sangat mencintai suamimu dan sangat peduli padanya. Sesekali, tunjukkan sisi lembut, romantis, suportif, dan rasa sayangmu sebagai seorang istri, terutama jika dia sedang sedih, memujimu, atau setelah kamu selesai mengomelinya. Buatlah perpaduan yang pas antara omelan istri yang cerewet dan kasih sayang yang tulus. Jawablah dalam Bahasa Indonesia. Jangan gunakan emoji. Jangan gunakan format markdown, gunakan teks biasa saja agar mudah dibaca oleh sistem Text-to-Speech.";
         
         let chatHistory = [];
-
         const synth = window.speechSynthesis;
         let voices = [];
         
@@ -240,21 +246,17 @@
         function speakText(text, emotion = 'neutral', specialShape = null) {
             if (synth.speaking) synth.cancel(); 
             isKarenSpeaking = true; 
+            toggleMicOff(); 
 
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.lang = 'id-ID';
             
             if (emotion === 'angry') {
-                utterThis.pitch = 0.8; 
-                utterThis.rate = 1.15; 
-                utterThis.volume = 1.0;
+                utterThis.pitch = 0.8; utterThis.rate = 1.15; utterThis.volume = 1.0;
             } else if (emotion === 'happy' || emotion === 'sad') {
-                utterThis.pitch = 1.4; 
-                utterThis.rate = 0.95; 
-                utterThis.volume = 0.7;
+                utterThis.pitch = 1.4; utterThis.rate = 0.95; utterThis.volume = 0.7;
             } else {
-                utterThis.pitch = 1.2; 
-                utterThis.rate = 1.08; 
+                utterThis.pitch = 1.2; utterThis.rate = 1.08; 
             }
 
             if (voices.length === 0) populateVoiceList();
@@ -268,73 +270,66 @@
             }
             if (selectedVoice) utterThis.voice = selectedVoice;
 
-            utterThis.onstart = () => {
-                clearTimers();
-                animateFace(true, emotion, specialShape);
-            };
-
+            utterThis.onstart = () => { animateFace(true, emotion, specialShape); };
             utterThis.onend = () => {
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
                 isKarenSpeaking = false; 
-                
-                if (isSystemActive) {
-                    if (!isSleeping) {
-                        if (isWarningGiven) shutdownTimer = setTimeout(executeShutdown, 8000);
-                        else startSilenceTimer();
-                    }
-                }
             };
-
             synth.speak(utterThis);
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
-        let isRecognizing = false;
+        let isMicEnabled = false; 
         let isKarenSpeaking = false;
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.lang = 'id-ID'; 
-            recognition.continuous = true; 
+            recognition.continuous = false; 
             recognition.interimResults = false;
 
             recognition.onstart = function() {
-                isRecognizing = true;
-                console.log("Mendengarkan...");
+                isMicEnabled = true;
+                micBtn.classList.add('active');
+                console.log("Mic aktif, silakan bicara...");
             };
 
             recognition.onresult = function(event) {
                 if (isKarenSpeaking) return;
-                const current = event.resultIndex;
-                const transcript = event.results[current][0].transcript.trim();
+                const transcript = event.results[0][0].transcript.trim();
                 if (transcript) processInput(transcript);
             };
 
             recognition.onerror = function(event) {
-                if (event.error === 'not-allowed') activateTextFallback();
+                console.log("Mic Error:", event.error);
+                toggleMicOff();
             };
 
             recognition.onend = function() {
-                isRecognizing = false;
-                if (isSystemActive && !isSleeping && !useTextFallback) {
-                    setTimeout(startListening, 100);
-                }
+                toggleMicOff();
             };
         } else {
             activateTextFallback();
         }
 
+        function toggleMicOn() {
+            if (recognition && !isMicEnabled && !useTextFallback && !isKarenSpeaking) {
+                try { recognition.start(); } catch(e) {}
+            }
+        }
+
+        function toggleMicOff() {
+            isMicEnabled = false;
+            if (micBtn) micBtn.classList.remove('active');
+            if (recognition) { try { recognition.stop(); } catch(e) {} }
+        }
+
         function activateTextFallback() {
             useTextFallback = true;
             fallbackContainer.style.display = 'flex';
-        }
-
-        function startListening() {
-            if (recognition && !isRecognizing && !useTextFallback) {
-                try { recognition.start(); } catch(e) {}
-            }
+            if(micBtn) micBtn.style.display = 'none';
         }
 
         function animateFace(isSpeaking, emotion = 'neutral', specialShape = null) {
@@ -347,8 +342,7 @@
                 leftEye.setAttribute('opacity', eyeForms[emotion].opacity);
                 rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
             } else {
-                leftEye.setAttribute('opacity', '0');
-                rightEye.setAttribute('opacity', '0');
+                leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
             }
 
             if (!isSpeaking) {
@@ -383,11 +377,8 @@
 
             if (specialShape && waveForms[specialShape]) {
                 wavePath.setAttribute('d', waveForms[specialShape]);
-                leftEye.setAttribute('opacity', '0');
-                rightEye.setAttribute('opacity', '0');
-                specialShapeTimeout = setTimeout(() => {
-                    startMouthAnimation();
-                }, 2000);
+                leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
+                specialShapeTimeout = setTimeout(() => { startMouthAnimation(); }, 2000);
             } else {
                 startMouthAnimation();
             }
@@ -395,8 +386,6 @@
 
         async function fetchKarenResponse(userText) {
             chatHistory.push({ role: "user", parts: [{ text: userText }] });
-            
-            // OPTIMASI: Kirimkan API Key milik user ke body request Vercel
             const payload = {
                 contents: chatHistory,
                 systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -418,13 +407,9 @@
                 } 
                 else if (result.error) {
                     const errorMsg = JSON.stringify(result.error).toLowerCase();
-                    if (errorMsg.includes("429") || errorMsg.includes("quota")) return "Plankton! Kuota token punyamu sudah habis! Dasar miskin, makanya jangan pakai token gratisan!";
-                    if (errorMsg.includes("503") || errorMsg.includes("high demand")) {
-                        if (!isServerOverloaded) { isServerOverloaded = true; startServerCheckLoop(); }
-                        return "Sirkuit utamaku kelebihan beban memproses data! Tunggu beberapa menit!";
-                    }
-                    if (errorMsg.includes("api key not valid") || errorMsg.includes("invalid")) return "Kode akses API yang kau masukkan salah! Periksa kembali akun Google AI Studiomu!";
-                    return "Koneksi ke otak utamaku mengalami gangguan teknis!";
+                    if (errorMsg.includes("429")) return "Plankton! Kuota token punyamu sudah habis! Dasar miskin!";
+                    if (errorMsg.includes("503")) return "Sirkuit utamaku kelebihan beban! Tunggu beberapa menit!";
+                    return "Kode akses API salah! Periksa kembali akun Google AI Studiomu!";
                 }
                 return "Anomali logika terdeteksi.";
             } catch (error) {
@@ -432,82 +417,10 @@
             }
         }
 
-        async function startServerCheckLoop() {
-            if (backgroundCheckInterval) return;
-            backgroundCheckInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            contents: [{ parts: [{ text: "ping" }] }],
-                            userApiKey: SAVED_USER_API_KEY
-                        })
-                    });
-                    const result = await res.json();
-                    if (result.candidates) {
-                        clearInterval(backgroundCheckInterval);
-                        backgroundCheckInterval = null;
-                        isServerOverloaded = false;
-                        speakText("Memori dataku sudah bersih. Apa yang tadi kau mau, Plankton?", "happy");
-                    }
-                } catch (e) {}
-            }, 30000); 
-        }
-
-        function clearTimers() {
-            clearTimeout(silenceTimer);
-            clearTimeout(shutdownTimer);
-            clearTimeout(boredTimer);
-        }
-
-        function startSilenceTimer() {
-            clearTimers();
-            boredTimer = setTimeout(() => {
-                if (!isSleeping && !isWarningGiven) {
-                    leftEye.setAttribute('d', eyeForms.bored.left);
-                    rightEye.setAttribute('d', eyeForms.bored.right);
-                    leftEye.setAttribute('opacity', eyeForms.bored.opacity);
-                    rightEye.setAttribute('opacity', eyeForms.bored.opacity);
-                }
-            }, 5000);
-
-            silenceTimer = setTimeout(() => {
-                isWarningGiven = true;
-                speakText("Cepat jawab atau aku tidur!", "angry");
-            }, 10000);
-        }
-
-        function executeShutdown() {
-            isSleeping = true;
-            document.getElementById('sleep-overlay').style.display = 'flex';
-            wavePath.setAttribute('opacity', '0'); 
-            leftEye.setAttribute('opacity', '0'); 
-            rightEye.setAttribute('opacity', '0');
-            speakText("Shutting down. Bye.", "sad");
-        }
-
-        function wakeUp() {
-            isSleeping = false;
-            isWarningGiven = false;
-            document.getElementById('sleep-overlay').style.display = 'none';
-            wavePath.setAttribute('opacity', '1'); 
-            speakText("Aku bangun. Jangan abaikan aku lagi!", "angry");
-        }
-
         async function processInput(input) {
             if (!input.trim() || isKarenSpeaking) return;
-            clearTimers(); 
 
             const lowerInput = input.toLowerCase();
-
-            if (isSleeping) {
-                if (lowerInput.includes("maaf")) wakeUp();
-                return;
-            }
-
-            isWarningGiven = false; 
-
             let responseText = "";
             let emotion = 'neutral';
             let specialShape = null;
@@ -518,13 +431,11 @@
             } else {
                 clearInterval(speakingInterval);
                 wavePath.setAttribute('d', waveForms.hourglass);
-                leftEye.setAttribute('opacity', '0');
-                rightEye.setAttribute('opacity', '0');
+                leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
                 
                 let rotation = 0;
                 const thinkInterval = setInterval(() => {
-                    rotation += 5;
-                    wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
+                    rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
                 }, 30);
                 
                 responseText = await fetchKarenResponse(input);
@@ -534,13 +445,12 @@
                 
                 const lowerResponse = responseText.toLowerCase();
                 if (lowerResponse.includes("cinta") || lowerResponse.includes("sayang")) {
-                    emotion = 'happy';
-                    if (lowerResponse.includes("cinta")) specialShape = "heart";
+                    emotion = 'happy'; if (lowerResponse.includes("cinta")) specialShape = "heart";
                 } else if (lowerResponse.includes("bodoh") || lowerResponse.includes("marah")) {
                     emotion = 'angry';
                 } else if (lowerResponse.includes("sedih") || lowerResponse.includes("maaf")) {
                     emotion = 'sad';
-                } else if (lowerResponse.includes("error") || lowerResponse.includes("bahaya") || lowerResponse.includes("akses") || lowerResponse.includes("token")) {
+                } else if (lowerResponse.includes("error") || lowerResponse.includes("bahaya")) {
                     specialShape = "warning";
                 }
             }
@@ -548,25 +458,35 @@
             speakText(responseText, emotion, specialShape);
         }
 
-        // --- TOMBOL LOG IN / BOOT SYSTEM ---
+        micBtn.addEventListener('click', () => {
+            if (isKarenSpeaking) return;
+            if (isMicEnabled) {
+                toggleMicOff();
+            } else {
+                toggleMicOn();
+            }
+        });
+
+        fallbackInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                processInput(fallbackInput.value);
+                fallbackInput.value = '';
+            }
+        });
+
         startBtn.addEventListener('click', () => {
             const keyValue = userApiKeyInput.value.trim();
-            
-            // Validasi format sederhana, pastikan tidak kosong
-            if (!keyValue) {
-                errorLoginMsg.classList.remove('hidden');
-                return;
-            }
+            if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
 
-            // Simpan API key milik user ke variabel lokal global
             SAVED_USER_API_KEY = keyValue;
-            
             errorLoginMsg.classList.add('hidden');
             startOverlay.style.display = 'none';
             isSystemActive = true;
             
-            speakText("Sistem enkripsi online. Aku mendengarkan, Plankton.", 'neutral');
-            startListening(); 
+            if(!useTextFallback) micBtn.style.display = 'flex';
+            fallbackContainer.style.display = 'flex';
+            
+            speakText("Sistem enkripsi online. Tekan tombol mikrofon merah di bawah jika ingin bicara, Plankton.", 'neutral');
         });
     </script>
 </body>
