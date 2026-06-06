@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <link rel="manifest" href="/manifest.json">
+    
     <title>Karen - W.I.F.E. Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -86,8 +87,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.7</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">FULLSCREEN IMMERSIVE MODE</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.8</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">SISTEM ANTI-BUDEK AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -199,12 +200,17 @@
             if (currentChunkIndex >= currentSpeechChunks.length) {
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
+                
+                // PERBAIKAN 1: Deklarasikan Karen selesai bicara di sini
                 isKarenSpeaking = false;
                 
-                if (isSystemActive && !isSleeping) {
+                if (isSystemActive) {
                     setTimeout(() => {
-                        if (!isKarenSpeaking && !synth.speaking) {
-                            startListening();
+                        // Nyalakan mic TANPA peduli status synth.speaking dari HP Chrome
+                        startListening();
+                        
+                        // PERBAIKAN 2: Jangan nyalakan timer diam kalau layarnya sedang merah (Tidur/Shutdown)
+                        if (!isSleeping) {
                             startSilenceTimer(); 
                         }
                     }, 1000);
@@ -266,7 +272,7 @@
             if (matches.length === 0) {
                 let defaultEmotion = 'neutral';
                 let lText = text.toLowerCase();
-                if(lText.includes('bodoh') || lText.includes('marah')) defaultEmotion = 'angry';
+                if(lText.includes('bodoh') || lText.includes('marah') || lText.includes('palsu')) defaultEmotion = 'angry';
                 if(lText.includes('sayang') || lText.includes('cinta')) defaultEmotion = 'happy';
                 chunks.push({ tag: defaultEmotion, text: text.trim() });
             } else {
@@ -308,11 +314,16 @@
                 if (transcript) processInput(transcript);
             };
 
-            recognition.onerror = function(event) { console.log("Mic Error:", event.error); };
+            recognition.onerror = function(event) { 
+                console.log("Mic Error:", event.error); 
+            };
 
             recognition.onend = function() {
                 isRecognizing = false;
-                if (isSystemActive && !isKarenSpeaking && !synth.speaking) {
+                
+                // PERBAIKAN 3: Hilangkan cek synth.speaking yang nyangkut dan isSleeping!
+                // Pastikan mic selalu re-start asalkan sistem aktif dan Karen tidak sedang ngoceh.
+                if (isSystemActive && !isKarenSpeaking) {
                     setTimeout(startListening, 1000);
                 } else if (!isSystemActive) {
                     updateMicStatus('offline');
@@ -321,13 +332,17 @@
         }
 
         function startListening() {
-            if (recognition && !isRecognizing && !isKarenSpeaking) {
-                try { recognition.start(); } catch(e) {}
+            if (recognition && !isKarenSpeaking) {
+                try { 
+                    recognition.start(); 
+                } catch(e) {
+                    // Abaikan pesan error aman jika dipanggil ganda
+                }
             }
         }
 
         function stopListening() {
-            if (recognition && isRecognizing) {
+            if (recognition) {
                 try { recognition.stop(); } catch(e) {}
             }
             isRecognizing = false;
@@ -385,7 +400,6 @@
         }
 
         async function fetchKarenResponse(userText) {
-            // 1. Buat memori sementara untuk dikirim (jangan simpan permanen dulu)
             const tempHistory = [...chatHistory, { role: "user", parts: [{ text: userText }] }];
             
             const payload = {
@@ -402,25 +416,21 @@
                 });
                 const result = await response.json();
                 
-                // 2. Jika sukses dapat balasan dari Google
                 if (result.candidates && result.candidates.length > 0) {
                     let aiText = result.candidates[0].content.parts[0].text;
                     
-                    // BARU SIMPAN PERMANEN KEDUA UCAPAN KE OTAK KAREN
                     chatHistory.push({ role: "user", parts: [{ text: userText }] });
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     
                     return aiText;
                 } 
                 
-                // 3. Tangkap pesan error spesifik dari Google (termasuk API salah)
                 if (result.error && result.error.message) {
                     const errMsg = result.error.message.toLowerCase();
                     if (errMsg.includes("api key not valid")) {
                         return "[MARAH] Kode akses apimu palsu atau salah ketik, Plankton!";
                     }
                 }
-
                 return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
             } catch (error) {
                 return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!";
@@ -458,12 +468,9 @@
             sleepOverlay.style.display = 'flex';
             wavePath.setAttribute('opacity', '0'); 
             leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
-            stopListening(); 
             
-            const utterThis = new SpeechSynthesisUtterance("Bagus. Kau mengabaikanku. Selamat tinggal, Plankton.");
-            utterThis.lang = 'id-ID'; utterThis.pitch = 0.8; utterThis.rate = 1.0;
-            utterThis.onend = () => { setTimeout(startListening, 1000); };
-            synth.speak(utterThis);
+            // PERBAIKAN 4: Gunakan sistem chunker yang sama agar manajemen mic-nya aman
+            playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
         }
 
         function wakeUp() {
@@ -509,14 +516,13 @@
             }
         }
 
-        // --- FUNGSI FULLSCREEN OTOMATIS SAAT BOOT ---
         function requestFullScreen() {
             const docElm = document.documentElement;
             if (docElm.requestFullscreen) {
                 docElm.requestFullscreen().catch(err => console.log("Layar penuh ditolak: ", err));
-            } else if (docElm.webkitRequestFullscreen) { /* Safari */
+            } else if (docElm.webkitRequestFullscreen) {
                 docElm.webkitRequestFullscreen();
-            } else if (docElm.msRequestFullscreen) { /* IE11 */
+            } else if (docElm.msRequestFullscreen) {
                 docElm.msRequestFullscreen();
             }
         }
@@ -525,7 +531,6 @@
             const keyValue = userApiKeyInput.value.trim();
             if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
 
-            // Panggil mode layar penuh saat tombol Boot ditekan
             requestFullScreen();
 
             SAVED_USER_API_KEY = keyValue;
