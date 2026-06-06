@@ -72,7 +72,7 @@
 
         #sleep-overlay {
             display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #000; z-index: 60;
+            background-color: rgba(0, 0, 0, 0.95); z-index: 60;
             flex-direction: column; align-items: center; justify-content: center;
             color: #ef4444; font-family: 'Share Tech Mono', monospace;
         }
@@ -82,13 +82,32 @@
             font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;
             display: flex; align-items: center; gap: 8px;
         }
+
+        #wake-btn {
+            margin-top: 30px;
+            background: transparent;
+            border: 2px solid #ef4444;
+            color: #ef4444;
+            padding: 15px 30px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #wake-btn:hover, #wake-btn:active {
+            background: #ef4444;
+            color: #000;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        }
     </style>
 </head>
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.8</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">SISTEM ANTI-BUDEK AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.9</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">SISTEM REBOOT MANUAL AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -102,8 +121,9 @@
         </div>
 
         <div id="sleep-overlay">
-            <p class="text-5xl font-bold tracking-widest animate-pulse">SYSTEM SHUTDOWN</p>
-            <p class="text-xl mt-4 text-green-400 opacity-70 text-center px-4">(Katakan "Maaf" untuk menyalakan ulang)</p>
+            <p class="text-5xl font-bold tracking-widest animate-pulse text-center">SYSTEM SHUTDOWN</p>
+            <p class="text-lg mt-2 text-gray-400 text-center px-4">Sirkuit Audio Terkunci Sementara.</p>
+            <button id="wake-btn">TEKAN & KATAKAN "MAAF"</button>
         </div>
 
         <svg class="waveform" viewBox="0 0 200 100">
@@ -124,6 +144,7 @@
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const sleepOverlay = document.getElementById('sleep-overlay');
+        const wakeBtn = document.getElementById('wake-btn');
 
         const waveForms = {
             idle: "M 10 50 L 190 50", 
@@ -201,17 +222,16 @@
                 animateFace(false);
                 wavePath.removeAttribute('transform'); 
                 
-                // PERBAIKAN 1: Deklarasikan Karen selesai bicara di sini
                 isKarenSpeaking = false;
                 
                 if (isSystemActive) {
                     setTimeout(() => {
-                        // Nyalakan mic TANPA peduli status synth.speaking dari HP Chrome
-                        startListening();
-                        
-                        // PERBAIKAN 2: Jangan nyalakan timer diam kalau layarnya sedang merah (Tidur/Shutdown)
+                        // Jangan nyalakan mic otomatis jika sedang shutdown!
                         if (!isSleeping) {
+                            startListening();
                             startSilenceTimer(); 
+                        } else {
+                            updateMicStatus('offline'); // Biarkan mic mati total saat tidur
                         }
                     }, 1000);
                 }
@@ -321,23 +341,23 @@
             recognition.onend = function() {
                 isRecognizing = false;
                 
-                // PERBAIKAN 3: Hilangkan cek synth.speaking yang nyangkut dan isSleeping!
-                // Pastikan mic selalu re-start asalkan sistem aktif dan Karen tidak sedang ngoceh.
-                if (isSystemActive && !isKarenSpeaking) {
+                // PERBAIKAN: Hanya restart otomatis JIKA TIDAK SEDANG TIDUR/SHUTDOWN
+                if (isSystemActive && !isKarenSpeaking && !isSleeping) {
                     setTimeout(startListening, 1000);
-                } else if (!isSystemActive) {
+                } else {
                     updateMicStatus('offline');
+                    if(isSleeping) {
+                        wakeBtn.innerText = 'TEKAN & KATAKAN "MAAF"'; // Reset teks tombol jika gagal mendeteksi
+                    }
                 }
             };
         }
 
         function startListening() {
-            if (recognition && !isKarenSpeaking) {
+            if (recognition && !isKarenSpeaking && !isRecognizing) {
                 try { 
                     recognition.start(); 
-                } catch(e) {
-                    // Abaikan pesan error aman jika dipanggil ganda
-                }
+                } catch(e) {}
             }
         }
 
@@ -469,7 +489,9 @@
             wavePath.setAttribute('opacity', '0'); 
             leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
             
-            // PERBAIKAN 4: Gunakan sistem chunker yang sama agar manajemen mic-nya aman
+            // Matikan total mic saat shutdown dipicu
+            stopListening(); 
+            
             playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
         }
 
@@ -487,8 +509,13 @@
 
             const lowerInput = input.toLowerCase();
 
+            // Logika saat layar merah
             if (isSleeping) {
-                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) wakeUp();
+                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
+                    wakeUp();
+                } else {
+                    wakeBtn.innerText = 'KATA SANDI SALAH! TEKAN LAGI';
+                }
                 return; 
             }
 
@@ -515,6 +542,14 @@
                 playSpeechChunks(chunks);
             }
         }
+
+        // EVENT LISTENER BARU: Tombol Reboot di Layar Merah
+        wakeBtn.addEventListener('click', () => {
+            if (isSleeping && !isKarenSpeaking) {
+                wakeBtn.innerText = "MENDENGARKAN...";
+                startListening();
+            }
+        });
 
         function requestFullScreen() {
             const docElm = document.documentElement;
