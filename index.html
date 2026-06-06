@@ -3,30 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    
     <title>Karen - W.I.F.E. Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        /* PERBAIKAN 1: Reset ukuran body agar HP tidak scrolling */
         html, body {
-            background-color: #000;
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            overflow: hidden;
+            background-color: #000; margin: 0; padding: 0;
+            width: 100%; height: 100%; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         }
 
         #karen-screen {
             background-color: #000;
-            /* PERBAIKAN 2: Gunakan 100dvh agar tidak terpotong Address Bar HP */
-            width: 100vw; 
-            height: 100vh; /* Fallback untuk browser lawas */
-            height: 100dvh; /* Dynamic Viewport - menyesuaikan URL bar HP */
+            width: 100vw; height: 100dvh; 
             box-sizing: border-box;
-            
-            /* PERBAIKAN 3: Border cerdas (Kecil di HP, Besar di PC) */
             border: clamp(15px, 4vmin, 40px) solid #1e3a8a;
-            
             position: relative;
             display: flex; align-items: center; justify-content: center;
             background-image: linear-gradient(rgba(74, 222, 128, 0.05) 50%, rgba(0, 0, 0, 0.2) 50%);
@@ -35,10 +32,7 @@
         }
 
         .waveform {
-            width: 90%; 
-            max-width: 800px; 
-            /* PERBAIKAN 4: Batasi tinggi maksimal agar tidak bablas saat Landscape */
-            max-height: 60vh; 
+            width: 90%; max-width: 800px; max-height: 60vh; 
             stroke: #4ade80; stroke-width: 5; fill: none;
             transition: d 0.2s ease, stroke-width 0.2s ease;
             filter: drop-shadow(0 0 15px #4ade80);
@@ -92,8 +86,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.6</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">SMART LAYOUT & DYNAMIC ENGINE AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.7</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">FULLSCREEN IMMERSIVE MODE</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -499,9 +493,24 @@
             }
         }
 
+        // --- FUNGSI FULLSCREEN OTOMATIS SAAT BOOT ---
+        function requestFullScreen() {
+            const docElm = document.documentElement;
+            if (docElm.requestFullscreen) {
+                docElm.requestFullscreen().catch(err => console.log("Layar penuh ditolak: ", err));
+            } else if (docElm.webkitRequestFullscreen) { /* Safari */
+                docElm.webkitRequestFullscreen();
+            } else if (docElm.msRequestFullscreen) { /* IE11 */
+                docElm.msRequestFullscreen();
+            }
+        }
+
         startBtn.addEventListener('click', () => {
             const keyValue = userApiKeyInput.value.trim();
             if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
+
+            // Panggil mode layar penuh saat tombol Boot ditekan
+            requestFullScreen();
 
             SAVED_USER_API_KEY = keyValue;
             errorLoginMsg.classList.add('hidden');
