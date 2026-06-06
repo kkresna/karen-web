@@ -335,6 +335,7 @@
                 
                 if (result.candidates && result.candidates.length > 0) {
                     const aiText = result.candidates[0].content.parts[0].text;
+                    aiText = aiText.replace(/\*/g, '');
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
                 } 
