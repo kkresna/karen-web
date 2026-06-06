@@ -8,7 +8,7 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/4616/4616084.png",
+      "src": "/logo-karen.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
