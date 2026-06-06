@@ -50,6 +50,11 @@
             background: #111; border: 2px solid #1e3a8a; color: #4ade80;
             font-family: 'Share Tech Mono', monospace; padding: 10px 15px;
             border-radius: 4px; outline: none; text-align: center; letter-spacing: 3px;
+            transition: all 0.3s ease;
+        }
+        .plankton-input:focus {
+            border-color: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
         }
 
         #start-btn {
@@ -76,8 +81,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.4</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">ENGINE EMOSI DINAMIS AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.5</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">SISTEM ANTI-BUG & AUDIO ALWAYS-ON AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -147,8 +152,6 @@
         let warningCount = 0; 
 
         const apiUrl = `/api/gemini`;
-        
-        // --- PROMPT BARU: MEMAKSA AI MENGGUNAKAN TAG EMOSI ---
         const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). NAMUN, kamu sebenarnya sangat mencintai suamimu dan peduli padanya. Jawablah dalam Bahasa Indonesia tanpa menggunakan asterisk (*).\n\nATURAN MUTLAK:\nKamu WAJIB menyisipkan tag emosi di awal kalimat setiap kali perasaanmu berubah di dalam satu balasan. Pilihan tag HANYA: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], atau [NGAMBEK].\n\nContoh jawaban yang benar:\n[MARAH] Ide bodoh macam apa lagi ini Plankton?! [BOSAN] Mendengarnya saja membuat prosesorku lelah. [SENANG] Tapi baiklah, karena kau suamiku tercinta, aku akan membantumu.";
         
         let chatHistory = [];
@@ -174,7 +177,6 @@
             }
         }
 
-        // --- SISTEM PEMBACA EMOSI DINAMIS (CHUNK PLAYER) ---
         let currentSpeechChunks = [];
         let currentChunkIndex = 0;
 
@@ -185,7 +187,6 @@
             isKarenSpeaking = true;
             stopListening();
             updateMicStatus('speaking');
-            
             playNextChunk();
         }
 
@@ -251,24 +252,21 @@
             synth.speak(utterThis);
         }
 
-        // --- PEMISAH TEKS DAN TAG EMOSI ---
         function parseEmotionTags(text) {
-            text = text.replace(/\*/g, ''); // Hapus asterisk
-
+            text = text.replace(/\*/g, ''); 
             const regex = /\[(.*?)\]([^\[]*)/g;
             let chunks = [];
             let matches = [...text.matchAll(regex)];
 
             if (matches.length === 0) {
-                // Fallback jika AI lupa pakai Tag
                 let defaultEmotion = 'neutral';
                 let lText = text.toLowerCase();
-                if(lText.includes('bodoh') || lText.includes('marah') || lText.includes('plankton')) defaultEmotion = 'angry';
+                if(lText.includes('bodoh') || lText.includes('marah')) defaultEmotion = 'angry';
                 if(lText.includes('sayang') || lText.includes('cinta')) defaultEmotion = 'happy';
                 chunks.push({ tag: defaultEmotion, text: text.trim() });
             } else {
                 matches.forEach(match => {
-                    let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); // bersihkan spasi
+                    let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); 
                     let content = match[2].trim();
                     
                     let emotionMap = {
@@ -309,13 +307,14 @@
 
             recognition.onend = function() {
                 isRecognizing = false;
-                // Syarat !isSleeping kita hapus agar mic terus me-restart meskipun sedang shutdown
+                // PERBAIKAN TELINGA KAREN: Akan restart mic asalkan sistem aktif (bahkan saat tidur)
                 if (isSystemActive && !isKarenSpeaking && !synth.speaking) {
                     setTimeout(startListening, 1000);
                 } else if (!isSystemActive) {
                     updateMicStatus('offline');
                 }
             };
+        }
 
         function startListening() {
             if (recognition && !isRecognizing && !isKarenSpeaking) {
@@ -402,7 +401,7 @@
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
                 } 
-                return "[MARAH] Modul logikaku mendeteksi anomali.";
+                return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
             } catch (error) {
                 return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!";
             }
@@ -444,7 +443,7 @@
             const utterThis = new SpeechSynthesisUtterance("Bagus. Kau mengabaikanku. Selamat tinggal, Plankton.");
             utterThis.lang = 'id-ID'; utterThis.pitch = 0.8; utterThis.rate = 1.0;
             utterThis.onend = () => { 
-                // Biarkan indikator di pojok tetap menyala merah/hijau saat menunggu kata maaf
+                // PERBAIKAN SHUTDOWN: Memastikan sistem tetap siap mendengarkan setelah pamit
                 setTimeout(startListening, 1000); 
             };
             synth.speak(utterThis);
@@ -488,7 +487,6 @@
                 clearInterval(thinkInterval);
                 wavePath.removeAttribute('transform');
                 
-                // MEMAINKAN TEKS BERDASARKAN TAG EMOSI DARI AI
                 let chunks = parseEmotionTags(responseText);
                 playSpeechChunks(chunks);
             }
