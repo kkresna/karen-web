@@ -385,9 +385,11 @@
         }
 
         async function fetchKarenResponse(userText) {
-            chatHistory.push({ role: "user", parts: [{ text: userText }] });
+            // 1. Buat memori sementara untuk dikirim (jangan simpan permanen dulu)
+            const tempHistory = [...chatHistory, { role: "user", parts: [{ text: userText }] }];
+            
             const payload = {
-                contents: chatHistory,
+                contents: tempHistory,
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 userApiKey: SAVED_USER_API_KEY 
             };
@@ -400,11 +402,25 @@
                 });
                 const result = await response.json();
                 
+                // 2. Jika sukses dapat balasan dari Google
                 if (result.candidates && result.candidates.length > 0) {
                     let aiText = result.candidates[0].content.parts[0].text;
+                    
+                    // BARU SIMPAN PERMANEN KEDUA UCAPAN KE OTAK KAREN
+                    chatHistory.push({ role: "user", parts: [{ text: userText }] });
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    
                     return aiText;
                 } 
+                
+                // 3. Tangkap pesan error spesifik dari Google (termasuk API salah)
+                if (result.error && result.error.message) {
+                    const errMsg = result.error.message.toLowerCase();
+                    if (errMsg.includes("api key not valid")) {
+                        return "[MARAH] Kode akses apimu palsu atau salah ketik, Plankton!";
+                    }
+                }
+
                 return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
             } catch (error) {
                 return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!";
