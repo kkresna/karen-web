@@ -76,8 +76,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.3</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">SISTEM SUARA OTOMATIS ALWAYS-ON</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.4</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">ENGINE EMOSI DINAMIS AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -120,7 +120,6 @@
             speak2: "M 0 50 Q 25 80, 50 50 T 100 20 T 150 50, 200 50",
             speak3: "M 0 50 Q 25 10, 50 50 T 100 90 T 150 10, 200 50",
             annoyed: "M 0 50 L 25 40 L 50 60 L 75 40 L 100 60 L 125 40 L 150 60 L 175 40 L 200 50",
-            // Mulut zigzag ke bawah (ngambek)
             ngambek: "M 40 75 L 55 60 L 70 70 L 85 55 L 100 65 L 115 55 L 130 70 L 145 60 L 160 75",
             heart: "M 100 90 C 100 90 50 50 50 25 C 50 5 85 5 100 25 C 115 5 150 5 150 25 C 150 50 100 90 100 90",
             warning: "M 100 10 L 100 65 M 100 80 L 100 85 M 100 10 L 50 90 L 150 90 Z",
@@ -133,7 +132,6 @@
             happy: { left: "M 40 30 Q 55 10 70 30", right: "M 130 30 Q 145 10 160 30", opacity: 1 },
             angry: { left: "M 40 15 L 70 35", right: "M 130 35 L 160 15", opacity: 1 },
             sad: { left: "M 40 35 L 70 15", right: "M 130 15 L 160 35", opacity: 1 },
-            // Mata alis miring tebal & garis bawah setengah tertutup
             ngambek: { left: "M 35 15 L 75 30 M 40 35 L 70 35", right: "M 165 15 L 125 30 M 160 35 L 130 35", opacity: 1 },
             curious: { left: "M 40 20 Q 55 0 70 20", right: "M 130 25 L 160 25", opacity: 1 }
         };
@@ -143,39 +141,74 @@
         let isSystemActive = false;
         let SAVED_USER_API_KEY = ""; 
         
-        // Timer dan Peringatan
         let silenceTimer;
         let boredTimer;
         let isSleeping = false;
-        let warningCount = 0; // Penghitung jumlah peringatan (maksimal 3)
+        let warningCount = 0; 
 
         const apiUrl = `/api/gemini`;
-        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu adalah super komputer yang logis, sinis, sarkastik, dan suka mengejek ide-ide bodoh pengguna (yang kamu anggap sebagai Plankton). NAMUN, di balik sikap ketus itu, kamu sebenarnya sangat mencintai suamimu dan sangat peduli padanya. Sesekali, tunjukkan sisi lembut, romantis, suportif, dan rasa sayangmu sebagai seorang istri, terutama jika dia sedang sedih, memujimu, atau setelah kamu selesai mengomelinya. Jawablah dalam Bahasa Indonesia. Jangan gunakan emoji. Jangan gunakan format markdown, gunakan teks biasa saja.";
+        
+        // --- PROMPT BARU: MEMAKSA AI MENGGUNAKAN TAG EMOSI ---
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). NAMUN, kamu sebenarnya sangat mencintai suamimu dan peduli padanya. Jawablah dalam Bahasa Indonesia tanpa menggunakan asterisk (*).\n\nATURAN MUTLAK:\nKamu WAJIB menyisipkan tag emosi di awal kalimat setiap kali perasaanmu berubah di dalam satu balasan. Pilihan tag HANYA: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], atau [NGAMBEK].\n\nContoh jawaban yang benar:\n[MARAH] Ide bodoh macam apa lagi ini Plankton?! [BOSAN] Mendengarnya saja membuat prosesorku lelah. [SENANG] Tapi baiklah, karena kau suamiku tercinta, aku akan membantumu.";
         
         let chatHistory = [];
         const synth = window.speechSynthesis;
+        let voices = [];
+        
+        function populateVoiceList() { voices = synth.getVoices(); }
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
 
         function updateMicStatus(status) {
             if (status === 'listening') {
                 statusDot.className = "w-3 h-3 rounded-full bg-green-500 animate-ping";
-                statusText.innerText = "KAREN LISTENING...";
-                statusText.className = "text-green-500";
+                statusText.innerText = "KAREN LISTENING..."; statusText.className = "text-green-500";
             } else if (status === 'speaking') {
                 statusDot.className = "w-3 h-3 rounded-full bg-blue-500";
-                statusText.innerText = "KAREN SPEAKING...";
-                statusText.className = "text-blue-400";
+                statusText.innerText = "KAREN SPEAKING..."; statusText.className = "text-blue-400";
             } else {
                 statusDot.className = "w-3 h-3 rounded-full bg-gray-600";
-                statusText.innerText = "KAREN SLEEPING";
-                statusText.className = "text-gray-500";
+                statusText.innerText = "KAREN SLEEPING"; statusText.className = "text-gray-500";
             }
         }
 
-        function speakText(text, emotion = 'neutral', specialShape = null) {
-            if (synth.speaking) synth.cancel(); 
+        // --- SISTEM PEMBACA EMOSI DINAMIS (CHUNK PLAYER) ---
+        let currentSpeechChunks = [];
+        let currentChunkIndex = 0;
+
+        function playSpeechChunks(chunks) {
+            if(synth.speaking) synth.cancel();
+            currentSpeechChunks = chunks;
+            currentChunkIndex = 0;
             isKarenSpeaking = true;
-            stopListening(); 
+            stopListening();
             updateMicStatus('speaking');
+            
+            playNextChunk();
+        }
+
+        function playNextChunk() {
+            if (currentChunkIndex >= currentSpeechChunks.length) {
+                animateFace(false);
+                wavePath.removeAttribute('transform'); 
+                isKarenSpeaking = false;
+                
+                if (isSystemActive && !isSleeping) {
+                    setTimeout(() => {
+                        if (!isKarenSpeaking && !synth.speaking) {
+                            startListening();
+                            startSilenceTimer(); 
+                        }
+                    }, 1000);
+                }
+                return;
+            }
+
+            let chunk = currentSpeechChunks[currentChunkIndex];
+            let emotion = chunk.tag;
+            let text = chunk.text;
 
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.lang = 'id-ID';
@@ -188,26 +221,66 @@
                 utterThis.pitch = 1.2; utterThis.rate = 1.08; 
             }
 
+            if (voices.length === 0) populateVoiceList();
+            let selectedVoice = null;
+            const idVoices = voices.filter(v => v.lang.toLowerCase().includes('id'));
+            if (idVoices.length > 0) {
+                selectedVoice = idVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('perempuan'));
+                if (!selectedVoice) selectedVoice = idVoices.find(v => v.name.includes('Google'));
+                if (!selectedVoice) selectedVoice = idVoices[0];
+            }
+            if (selectedVoice) utterThis.voice = selectedVoice;
+
             utterThis.onstart = () => { 
                 clearTimers();
+                let specialShape = null;
+                if(emotion === 'happy' && text.toLowerCase().includes('cinta')) specialShape = 'heart';
                 animateFace(true, emotion, specialShape); 
             };
             
             utterThis.onend = () => {
-                animateFace(false);
-                wavePath.removeAttribute('transform'); 
-                isKarenSpeaking = false;
-                
-                if (isSystemActive && !isSleeping) {
-                    setTimeout(() => {
-                        if (!isKarenSpeaking && !synth.speaking) {
-                            startListening();
-                            startSilenceTimer(); // Mulai hitung diam lagi setelah bicara
-                        }
-                    }, 1500);
-                }
+                currentChunkIndex++;
+                playNextChunk(); 
             };
+
+            utterThis.onerror = () => {
+                currentChunkIndex++;
+                playNextChunk(); 
+            };
+
             synth.speak(utterThis);
+        }
+
+        // --- PEMISAH TEKS DAN TAG EMOSI ---
+        function parseEmotionTags(text) {
+            text = text.replace(/\*/g, ''); // Hapus asterisk
+
+            const regex = /\[(.*?)\]([^\[]*)/g;
+            let chunks = [];
+            let matches = [...text.matchAll(regex)];
+
+            if (matches.length === 0) {
+                // Fallback jika AI lupa pakai Tag
+                let defaultEmotion = 'neutral';
+                let lText = text.toLowerCase();
+                if(lText.includes('bodoh') || lText.includes('marah') || lText.includes('plankton')) defaultEmotion = 'angry';
+                if(lText.includes('sayang') || lText.includes('cinta')) defaultEmotion = 'happy';
+                chunks.push({ tag: defaultEmotion, text: text.trim() });
+            } else {
+                matches.forEach(match => {
+                    let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); // bersihkan spasi
+                    let content = match[2].trim();
+                    
+                    let emotionMap = {
+                        'marah': 'angry', 'senang': 'happy', 'sedih': 'sad',
+                        'bosan': 'bored', 'netral': 'neutral', 'ngambek': 'ngambek'
+                    };
+                    
+                    let finalEmotion = emotionMap[tagRaw] || 'neutral';
+                    if (content.length > 0) chunks.push({ tag: finalEmotion, text: content });
+                });
+            }
+            return chunks;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -232,9 +305,7 @@
                 if (transcript) processInput(transcript);
             };
 
-            recognition.onerror = function(event) {
-                console.log("Mic Error:", event.error);
-            };
+            recognition.onerror = function(event) { console.log("Mic Error:", event.error); };
 
             recognition.onend = function() {
                 isRecognizing = false;
@@ -264,21 +335,15 @@
             clearTimeout(specialShapeTimeout); 
             
             if (eyeForms[emotion]) {
-                leftEye.setAttribute('d', eyeForms[emotion].left);
-                rightEye.setAttribute('d', eyeForms[emotion].right);
-                leftEye.setAttribute('opacity', eyeForms[emotion].opacity);
-                rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
+                leftEye.setAttribute('d', eyeForms[emotion].left); rightEye.setAttribute('d', eyeForms[emotion].right);
+                leftEye.setAttribute('opacity', eyeForms[emotion].opacity); rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
             } else {
                 leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
             }
 
             if (!isSpeaking) {
-                // Jika sedang tidak bicara tapi emosi sedang "ngambek", tahan muka ngambeknya!
-                if (emotion === 'ngambek') {
-                    wavePath.setAttribute('d', waveForms.ngambek);
-                } else {
-                    wavePath.setAttribute('d', waveForms.idle);
-                }
+                if (emotion === 'ngambek') wavePath.setAttribute('d', waveForms.ngambek);
+                else wavePath.setAttribute('d', waveForms.idle);
                 wavePath.removeAttribute('transform');
                 return;
             }
@@ -291,7 +356,6 @@
                 }
 
                 if (emotion === 'angry' || emotion === 'ngambek') {
-                    // Animasi getar ke atas bawah saat mengomel
                     wavePath.setAttribute('d', emotion === 'ngambek' ? waveForms.ngambek : waveForms.annoyed);
                     let toggle = false;
                     speakingInterval = setInterval(() => {
@@ -335,13 +399,12 @@
                 
                 if (result.candidates && result.candidates.length > 0) {
                     let aiText = result.candidates[0].content.parts[0].text;
-                    aiText = aiText.replace(/\*/g, '');
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
                 } 
-                return "Modul logikaku mendeteksi anomali.";
+                return "[MARAH] Modul logikaku mendeteksi anomali.";
             } catch (error) {
-                return "Wi-Fi laboratorium Chum Bucket bermasalah!";
+                return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!";
             }
         }
 
@@ -353,30 +416,21 @@
         function startSilenceTimer() {
             clearTimers();
             
-            // Tampilkan mata bosan di detik 5 JIKA belum masuk mode ngambek
             boredTimer = setTimeout(() => {
                 if (!isSleeping && warningCount === 0) {
-                    // BUG FIX: .bored diubah jadi .right
-                    leftEye.setAttribute('d', eyeForms.bored.left);
-                    rightEye.setAttribute('d', eyeForms.bored.right); 
+                    leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right); 
                     leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
                 }
             }, 5000);
 
-            // Waktu tunggu: Jika sudah 3x peringatan, timer menjadi 5 detik untuk shutdown
             let waitTime = (warningCount >= 3) ? 5000 : 10000;
 
             silenceTimer = setTimeout(() => {
                 warningCount++;
-                if (warningCount === 1) {
-                    speakText("Plankton? Kenapa kau diam saja? Jawab aku!", "ngambek");
-                } else if (warningCount === 2) {
-                    speakText("Halo? Aku paling benci diabaikan! Berhenti bermain-main!", "ngambek");
-                } else if (warningCount === 3) {
-                    speakText("Ini peringatan terakhirmu, Plankton! 5 detik lagi sirkuitku akan kumatikan!", "ngambek");
-                } else if (warningCount > 3) {
-                    executeShutdown();
-                }
+                if (warningCount === 1) playSpeechChunks([{tag: 'ngambek', text: "Plankton? Kenapa kau diam saja? Jawab aku!"}]);
+                else if (warningCount === 2) playSpeechChunks([{tag: 'ngambek', text: "Halo? Aku paling benci diabaikan! Berhenti bermain-main!"}]);
+                else if (warningCount === 3) playSpeechChunks([{tag: 'ngambek', text: "Ini peringatan terakhirmu, Plankton! 5 detik lagi sirkuitku akan kumatikan!"}]);
+                else if (warningCount > 3) executeShutdown();
             }, waitTime);
         }
 
@@ -385,25 +439,20 @@
             sleepOverlay.style.display = 'flex';
             wavePath.setAttribute('opacity', '0'); 
             leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
-            stopListening(); // Matikan telinga sementara
+            stopListening(); 
             
-            // Bicara tanpa mengubah wajah karena layar sudah tertutup
             const utterThis = new SpeechSynthesisUtterance("Bagus. Kau mengabaikanku. Selamat tinggal, Plankton.");
-            utterThis.lang = 'id-ID';
-            utterThis.pitch = 0.8; utterThis.rate = 1.0;
-            utterThis.onend = () => {
-                // Setelah selesai bicara pamit, nyalakan telinga lagi HANYA untuk menunggu kata maaf
-                setTimeout(startListening, 1000);
-            };
+            utterThis.lang = 'id-ID'; utterThis.pitch = 0.8; utterThis.rate = 1.0;
+            utterThis.onend = () => { setTimeout(startListening, 1000); };
             synth.speak(utterThis);
         }
 
         function wakeUp() {
             isSleeping = false;
-            warningCount = 0; // Reset amarah
+            warningCount = 0; 
             sleepOverlay.style.display = 'none';
             wavePath.setAttribute('opacity', '1'); 
-            speakText("Sistem kembali online! Jangan pernah berani mengabaikanku lagi!", "angry");
+            playSpeechChunks([{tag: 'angry', text: "Sistem kembali online! Jangan pernah berani mengabaikanku lagi!"}]);
         }
 
         async function processInput(input) {
@@ -413,20 +462,14 @@
             const lowerInput = input.toLowerCase();
 
             if (isSleeping) {
-                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
-                    wakeUp();
-                }
-                return; // Abaikan ucapan lain jika belum minta maaf
+                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) wakeUp();
+                return; 
             }
 
-            warningCount = 0; // Reset amarah karena Plankton sudah bicara
-            let responseText = "";
-            let emotion = 'neutral';
-            let specialShape = null;
-
+            warningCount = 0; 
+            
             if (lowerInput.includes("hai karen") || lowerInput.includes("halo karen")) {
-                responseText = "Apa maumu Plankton?";
-                emotion = 'angry';
+                playSpeechChunks([{tag: 'angry', text: "Apa maumu Plankton?"}]);
             } else {
                 clearInterval(speakingInterval);
                 wavePath.setAttribute('d', waveForms.hourglass);
@@ -437,22 +480,15 @@
                     rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
                 }, 30);
                 
-                responseText = await fetchKarenResponse(input);
+                let responseText = await fetchKarenResponse(input);
                 
                 clearInterval(thinkInterval);
                 wavePath.removeAttribute('transform');
                 
-                const lowerResponse = responseText.toLowerCase();
-                if (lowerResponse.includes("cinta") || lowerResponse.includes("sayang")) {
-                    emotion = 'happy'; if (lowerResponse.includes("cinta")) specialShape = "heart";
-                } else if (lowerResponse.includes("bodoh") || lowerResponse.includes("marah")) {
-                    emotion = 'angry';
-                } else if (lowerResponse.includes("sedih") || lowerResponse.includes("maaf")) {
-                    emotion = 'sad';
-                }
+                // MEMAINKAN TEKS BERDASARKAN TAG EMOSI DARI AI
+                let chunks = parseEmotionTags(responseText);
+                playSpeechChunks(chunks);
             }
-
-            speakText(responseText, emotion, specialShape);
         }
 
         startBtn.addEventListener('click', () => {
@@ -464,7 +500,7 @@
             startOverlay.style.display = 'none';
             isSystemActive = true;
             
-            speakText("Sistem enkripsi online. Aku mendengarkan, Plankton.", 'neutral');
+            playSpeechChunks([{tag: 'neutral', text: "Sistem enkripsi online. Aku mendengarkan, Plankton."}]);
         });
     </script>
 </body>
