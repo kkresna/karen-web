@@ -309,13 +309,13 @@
 
             recognition.onend = function() {
                 isRecognizing = false;
-                if (isSystemActive && !isSleeping && !isKarenSpeaking && !synth.speaking) {
+                // Syarat !isSleeping kita hapus agar mic terus me-restart meskipun sedang shutdown
+                if (isSystemActive && !isKarenSpeaking && !synth.speaking) {
                     setTimeout(startListening, 1000);
-                } else if (!isSystemActive || isSleeping) {
+                } else if (!isSystemActive) {
                     updateMicStatus('offline');
                 }
             };
-        }
 
         function startListening() {
             if (recognition && !isRecognizing && !isKarenSpeaking) {
@@ -443,7 +443,10 @@
             
             const utterThis = new SpeechSynthesisUtterance("Bagus. Kau mengabaikanku. Selamat tinggal, Plankton.");
             utterThis.lang = 'id-ID'; utterThis.pitch = 0.8; utterThis.rate = 1.0;
-            utterThis.onend = () => { setTimeout(startListening, 1000); };
+            utterThis.onend = () => { 
+                // Biarkan indikator di pojok tetap menyala merah/hijau saat menunggu kata maaf
+                setTimeout(startListening, 1000); 
+            };
             synth.speak(utterThis);
         }
 
