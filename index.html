@@ -97,8 +97,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.0</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">DIRECTOR MODE & EXTENDED LISTENING</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.1</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">ASYNC INTERCEPTOR AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -169,7 +169,7 @@
         let isSleeping = false;
         let warningCount = 0; 
 
-        // STATE BARU: Untuk Mode Sutradara
+        // STATE SUTRADARA
         let isScreensaver = false;
         let isListeningLong = false;
         let longTranscript = "";
@@ -228,13 +228,11 @@
                     updateMicStatus('sleeping'); 
                 } else if (isScreensaver) {
                     updateMicStatus('screensaver');
-                    // Pasang wajah bengong abadi selama mode screensaver
                     leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right);
                     leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
                     setTimeout(startListening, 1000); 
                 } else if (isListeningLong) {
                     updateMicStatus('listening');
-                    // Pasang wajah penasaran menunggu Plankton cerita
                     leftEye.setAttribute('d', eyeForms.curious.left); rightEye.setAttribute('d', eyeForms.curious.right);
                     leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
                     setTimeout(startListening, 1000);
@@ -309,13 +307,11 @@
                 matches.forEach(match => {
                     let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); 
                     let content = match[2].trim();
-                    
                     let emotionMap = {
                         'marah': 'angry', 'senang': 'happy', 'sedih': 'sad',
                         'bosan': 'bored', 'netral': 'neutral', 'ngambek': 'ngambek',
                         'penasaran': 'curious'
                     };
-                    
                     let finalEmotion = emotionMap[tagRaw] || 'neutral';
                     if (content.length > 0) chunks.push({ tag: finalEmotion, text: content });
                 });
@@ -345,15 +341,13 @@
                 if (transcript) processInput(transcript);
             };
 
-            recognition.onerror = function(event) { 
-                console.log("Mic Error:", event.error); 
-            };
+            recognition.onerror = function(event) { console.log("Mic Error:", event.error); };
 
             recognition.onend = function() {
                 isRecognizing = false;
                 
                 if (isSystemActive && !isKarenSpeaking && !isSleeping) {
-                    setTimeout(startListening, 1000); // Restart otomatis
+                    setTimeout(startListening, 1000); 
                 } else {
                     if(isSleeping) {
                         updateMicStatus('sleeping');
@@ -429,7 +423,6 @@
             }
         }
 
-        // FUNGSI BARU: Pemisah Animasi Loader dan Panggilan API agar kode tidak berulang
         async function triggerGemini(inputData) {
             clearInterval(speakingInterval);
             wavePath.setAttribute('d', waveForms.hourglass);
@@ -443,21 +436,25 @@
             let responseText = await fetchKarenResponse(inputData);
             
             clearInterval(thinkInterval);
-            wavePath.removeAttribute('transform');
             
+            // PERBAIKAN FATAL: Mencegah Gemini menabrak perintah diam!
+            if (isScreensaver || isSleeping || isListeningLong) {
+                wavePath.removeAttribute('transform');
+                return; // Langsung buang jawaban Gemini ke tong sampah
+            }
+            
+            wavePath.removeAttribute('transform');
             let chunks = parseEmotionTags(responseText);
             playSpeechChunks(chunks);
         }
 
         async function fetchKarenResponse(userText) {
             const tempHistory = [...chatHistory, { role: "user", parts: [{ text: userText }] }];
-            
             const payload = {
                 contents: tempHistory,
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 userApiKey: SAVED_USER_API_KEY 
             };
-
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -485,7 +482,6 @@
 
         function startSilenceTimer() {
             clearTimers();
-            // JANGAN mulai timer jika sedang screensaver atau mendengarkan panjang
             if (isScreensaver || isListeningLong || isSleeping) return; 
             
             boredTimer = setTimeout(() => {
@@ -511,7 +507,6 @@
             leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
             stopListening(); 
             updateMicStatus('sleeping'); 
-            
             playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
         }
 
@@ -537,19 +532,19 @@
 
             // 2. CEK STATUS SCREENSAVER BENGONG
             if (isScreensaver) {
-                if (lowerInput.includes("selesai") || lowerInput.includes("halo karen") || lowerInput.includes("bangun")) {
+                // Diperluas pemicu bangunnya agar tidak mudah salah panggil
+                if (lowerInput.includes("selesai") || lowerInput.includes("bangun") || lowerInput.includes("kembali") || lowerInput === "halo karen") {
                     isScreensaver = false;
-                    playSpeechChunks([{tag: 'bored', text: "Oh, apakah kamu sudah selesai mengabaikanku? Baguslah."}]);
+                    playSpeechChunks([{tag: 'bored', text: "Oh, akhirnya. Apakah kamu sudah selesai mengabaikanku? Baguslah."}]);
                 }
-                return; // Abaikan omongan lain saat screensaver
+                return; 
             }
 
             // 3. CEK STATUS DENGAR PANJANG
             if (isListeningLong) {
-                if (lowerInput.includes("selesai") || lowerInput.includes("jawab") || lowerInput.includes("itu saja")) {
+                if (lowerInput.includes("selesai") || lowerInput.includes("jawab") || lowerInput.includes("cukup")) {
                     isListeningLong = false;
-                    // Gabungkan semua teks panjang dan hapus kata pemicu akhirnya
-                    let finalInput = (longTranscript + " " + input).replace(/(sudah selesai|selesai|jawab|itu saja)/gi, '').trim();
+                    let finalInput = (longTranscript + " " + input).replace(/(sudah selesai|selesai|jawab|cukup)/gi, '').trim();
                     longTranscript = "";
                     
                     if (finalInput.length > 0) {
@@ -558,24 +553,22 @@
                         playSpeechChunks([{tag: 'angry', text: "Kau membuang waktuku Plankton! Kau tidak bicara apa-apa!"}]);
                     }
                 } else {
-                    // Kumpulkan kalimat jika belum selesai
                     longTranscript += " " + input;
-                    // Timer ngambek tidak akan menyala berkat fungsi pelindung di atas
                 }
                 return;
             }
 
             warningCount = 0; 
 
-            // 4. PEMICU SCREENSAVER MODE
-            if (lowerInput.includes("mode screensaver") || lowerInput.includes("diam dulu") || lowerInput.includes("tunggu sebentar")) {
+            // 4. PEMICU SCREENSAVER MODE (Diperbanyak sinonimnya)
+            if (lowerInput.includes("diam dulu") || lowerInput.includes("diam sebentar") || lowerInput.includes("mode screensaver") || lowerInput.includes("tunggu sebentar")) {
                 isScreensaver = true;
-                playSpeechChunks([{tag: 'bored', text: "Baiklah. Aku akan masuk mode screensaver dan bengong di sini sampai urusan tidak pentingmu selesai."}]);
+                playSpeechChunks([{tag: 'bored', text: "Baiklah. Aku akan masuk mode screensaver dan bengong di sini. Panggil aku jika sudah selesai."}]);
                 return;
             }
 
             // 5. PEMICU MODE DENGAR PANJANG
-            if (lowerInput.includes("dengarkan aku dulu") || lowerInput.includes("aku mau bicara")) {
+            if (lowerInput.includes("dengarkan aku") || lowerInput.includes("aku mau bicara") || lowerInput.includes("aku mau cerita") || lowerInput.includes("beri aku waktu")) {
                 isListeningLong = true;
                 longTranscript = "";
                 playSpeechChunks([{tag: 'neutral', text: "Baik, aku beri kau waktu untuk bicara. Katakan 'sudah selesai' jika kau ingin aku menjawab."}]);
@@ -583,7 +576,7 @@
             }
             
             // 6. PERCAKAPAN NORMAL
-            if (lowerInput.includes("hai karen") || lowerInput.includes("halo karen")) {
+            if (lowerInput === "hai karen" || lowerInput === "halo karen") {
                 playSpeechChunks([{tag: 'angry', text: "Apa maumu Plankton?"}]);
             } else {
                 await triggerGemini(input);
@@ -599,11 +592,8 @@
 
         function requestFullScreen() {
             const docElm = document.documentElement;
-            if (docElm.requestFullscreen) {
-                docElm.requestFullscreen().catch(() => {});
-            } else if (docElm.webkitRequestFullscreen) {
-                docElm.webkitRequestFullscreen().catch(() => {});
-            }
+            if (docElm.requestFullscreen) docElm.requestFullscreen().catch(() => {});
+            else if (docElm.webkitRequestFullscreen) docElm.webkitRequestFullscreen().catch(() => {});
         }
 
         startBtn.addEventListener('click', () => {
