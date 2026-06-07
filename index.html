@@ -97,8 +97,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v1.9.1</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">FULL SYSTEM BOOTLOADER</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.0</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">DIRECTOR MODE & EXTENDED LISTENING</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -169,6 +169,11 @@
         let isSleeping = false;
         let warningCount = 0; 
 
+        // STATE BARU: Untuk Mode Sutradara
+        let isScreensaver = false;
+        let isListeningLong = false;
+        let longTranscript = "";
+
         const apiUrl = `/api/gemini`;
         const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). NAMUN, kamu sebenarnya sangat mencintai suamimu dan peduli padanya. Jawablah dalam Bahasa Indonesia tanpa menggunakan asterisk (*).\n\nATURAN MUTLAK:\nKamu WAJIB menyisipkan tag emosi di awal kalimat setiap kali perasaanmu berubah di dalam satu balasan. Pilihan tag HANYA: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].\n\nContoh jawaban yang benar:\n[MARAH] Ide bodoh macam apa lagi ini Plankton?! [BOSAN] Mendengarnya saja membuat prosesorku lelah. [SENANG] Tapi baiklah, karena kau suamiku tercinta, aku akan membantumu.";
         
@@ -189,9 +194,10 @@
             } else if (status === 'speaking') {
                 statusDot.className = "w-3 h-3 rounded-full bg-blue-500";
                 statusText.innerText = "KAREN SPEAKING..."; statusText.className = "text-blue-400";
-            } else if (status === 'sleeping') {
+            } else if (status === 'sleeping' || status === 'screensaver') {
                 statusDot.className = "w-3 h-3 rounded-full bg-red-600";
-                statusText.innerText = "KAREN SLEEPING"; statusText.className = "text-red-500";
+                statusText.innerText = status === 'screensaver' ? "SCREENSAVER MODE" : "KAREN SLEEPING"; 
+                statusText.className = "text-red-500";
             } else {
                 statusDot.className = "w-3 h-3 rounded-full bg-gray-600";
                 statusText.innerText = "SYSTEM STANDBY"; statusText.className = "text-gray-500";
@@ -220,6 +226,18 @@
                 
                 if (isSleeping) {
                     updateMicStatus('sleeping'); 
+                } else if (isScreensaver) {
+                    updateMicStatus('screensaver');
+                    // Pasang wajah bengong abadi selama mode screensaver
+                    leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right);
+                    leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
+                    setTimeout(startListening, 1000); 
+                } else if (isListeningLong) {
+                    updateMicStatus('listening');
+                    // Pasang wajah penasaran menunggu Plankton cerita
+                    leftEye.setAttribute('d', eyeForms.curious.left); rightEye.setAttribute('d', eyeForms.curious.right);
+                    leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
+                    setTimeout(startListening, 1000);
                 } else if (isSystemActive) {
                     updateMicStatus('standby'); 
                     setTimeout(() => {
@@ -318,7 +336,7 @@
 
             recognition.onstart = function() {
                 isRecognizing = true;
-                updateMicStatus('listening');
+                if(!isScreensaver && !isSleeping) updateMicStatus('listening');
             };
 
             recognition.onresult = function(event) {
@@ -335,13 +353,11 @@
                 isRecognizing = false;
                 
                 if (isSystemActive && !isKarenSpeaking && !isSleeping) {
-                    setTimeout(startListening, 1000);
+                    setTimeout(startListening, 1000); // Restart otomatis
                 } else {
                     if(isSleeping) {
                         updateMicStatus('sleeping');
                         wakeBtn.innerText = 'TEKAN & KATAKAN "MAAF"';
-                    } else {
-                        updateMicStatus('standby');
                     }
                 }
             };
@@ -351,7 +367,7 @@
             if (recognition && !isKarenSpeaking && !isRecognizing && !isSleeping) {
                 try { recognition.start(); } catch(e) {}
             } else if (recognition && isSleeping && !isKarenSpeaking) {
-                try { recognition.start(); } catch(e) {} // Khusus saat tombol wake ditekan
+                try { recognition.start(); } catch(e) {} 
             }
         }
 
@@ -413,6 +429,26 @@
             }
         }
 
+        // FUNGSI BARU: Pemisah Animasi Loader dan Panggilan API agar kode tidak berulang
+        async function triggerGemini(inputData) {
+            clearInterval(speakingInterval);
+            wavePath.setAttribute('d', waveForms.hourglass);
+            leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
+            
+            let rotation = 0;
+            const thinkInterval = setInterval(() => {
+                rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
+            }, 30);
+            
+            let responseText = await fetchKarenResponse(inputData);
+            
+            clearInterval(thinkInterval);
+            wavePath.removeAttribute('transform');
+            
+            let chunks = parseEmotionTags(responseText);
+            playSpeechChunks(chunks);
+        }
+
         async function fetchKarenResponse(userText) {
             const tempHistory = [...chatHistory, { role: "user", parts: [{ text: userText }] }];
             
@@ -432,19 +468,10 @@
                 
                 if (result.candidates && result.candidates.length > 0) {
                     let aiText = result.candidates[0].content.parts[0].text;
-                    
                     chatHistory.push({ role: "user", parts: [{ text: userText }] });
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
-                    
                     return aiText;
                 } 
-                
-                if (result.error && result.error.message) {
-                    const errMsg = result.error.message.toLowerCase();
-                    if (errMsg.includes("api key not valid")) {
-                        return "[MARAH] Kode akses apimu palsu atau salah ketik, Plankton!";
-                    }
-                }
                 return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
             } catch (error) {
                 return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!";
@@ -458,12 +485,12 @@
 
         function startSilenceTimer() {
             clearTimers();
+            // JANGAN mulai timer jika sedang screensaver atau mendengarkan panjang
+            if (isScreensaver || isListeningLong || isSleeping) return; 
             
             boredTimer = setTimeout(() => {
-                if (!isSleeping && warningCount === 0) {
-                    leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right); 
-                    leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
-                }
+                leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right); 
+                leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
             }, 5000);
 
             let waitTime = (warningCount >= 3) ? 5000 : 10000;
@@ -499,39 +526,67 @@
         async function processInput(input) {
             if (!input.trim() || isKarenSpeaking) return;
             clearTimers(); 
-
             const lowerInput = input.toLowerCase();
 
+            // 1. CEK STATUS SHUTDOWN
             if (isSleeping) {
-                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) {
-                    wakeUp();
-                } else {
-                    wakeBtn.innerText = 'KATA SANDI SALAH! TEKAN LAGI';
-                }
+                if (lowerInput.includes("maaf") || lowerInput.includes("minta maaf")) wakeUp();
+                else wakeBtn.innerText = 'KATA SANDI SALAH! TEKAN LAGI';
                 return; 
             }
 
+            // 2. CEK STATUS SCREENSAVER BENGONG
+            if (isScreensaver) {
+                if (lowerInput.includes("selesai") || lowerInput.includes("halo karen") || lowerInput.includes("bangun")) {
+                    isScreensaver = false;
+                    playSpeechChunks([{tag: 'bored', text: "Oh, apakah kamu sudah selesai mengabaikanku? Baguslah."}]);
+                }
+                return; // Abaikan omongan lain saat screensaver
+            }
+
+            // 3. CEK STATUS DENGAR PANJANG
+            if (isListeningLong) {
+                if (lowerInput.includes("selesai") || lowerInput.includes("jawab") || lowerInput.includes("itu saja")) {
+                    isListeningLong = false;
+                    // Gabungkan semua teks panjang dan hapus kata pemicu akhirnya
+                    let finalInput = (longTranscript + " " + input).replace(/(sudah selesai|selesai|jawab|itu saja)/gi, '').trim();
+                    longTranscript = "";
+                    
+                    if (finalInput.length > 0) {
+                        await triggerGemini(finalInput);
+                    } else {
+                        playSpeechChunks([{tag: 'angry', text: "Kau membuang waktuku Plankton! Kau tidak bicara apa-apa!"}]);
+                    }
+                } else {
+                    // Kumpulkan kalimat jika belum selesai
+                    longTranscript += " " + input;
+                    // Timer ngambek tidak akan menyala berkat fungsi pelindung di atas
+                }
+                return;
+            }
+
             warningCount = 0; 
+
+            // 4. PEMICU SCREENSAVER MODE
+            if (lowerInput.includes("mode screensaver") || lowerInput.includes("diam dulu") || lowerInput.includes("tunggu sebentar")) {
+                isScreensaver = true;
+                playSpeechChunks([{tag: 'bored', text: "Baiklah. Aku akan masuk mode screensaver dan bengong di sini sampai urusan tidak pentingmu selesai."}]);
+                return;
+            }
+
+            // 5. PEMICU MODE DENGAR PANJANG
+            if (lowerInput.includes("dengarkan aku dulu") || lowerInput.includes("aku mau bicara")) {
+                isListeningLong = true;
+                longTranscript = "";
+                playSpeechChunks([{tag: 'neutral', text: "Baik, aku beri kau waktu untuk bicara. Katakan 'sudah selesai' jika kau ingin aku menjawab."}]);
+                return;
+            }
             
+            // 6. PERCAKAPAN NORMAL
             if (lowerInput.includes("hai karen") || lowerInput.includes("halo karen")) {
                 playSpeechChunks([{tag: 'angry', text: "Apa maumu Plankton?"}]);
             } else {
-                clearInterval(speakingInterval);
-                wavePath.setAttribute('d', waveForms.hourglass);
-                leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
-                
-                let rotation = 0;
-                const thinkInterval = setInterval(() => {
-                    rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`);
-                }, 30);
-                
-                let responseText = await fetchKarenResponse(input);
-                
-                clearInterval(thinkInterval);
-                wavePath.removeAttribute('transform');
-                
-                let chunks = parseEmotionTags(responseText);
-                playSpeechChunks(chunks);
+                await triggerGemini(input);
             }
         }
 
@@ -545,9 +600,9 @@
         function requestFullScreen() {
             const docElm = document.documentElement;
             if (docElm.requestFullscreen) {
-                docElm.requestFullscreen().catch(err => console.log("Layar penuh ditolak", err));
+                docElm.requestFullscreen().catch(() => {});
             } else if (docElm.webkitRequestFullscreen) {
-                docElm.webkitRequestFullscreen().catch(err => console.log("Layar penuh ditolak", err));
+                docElm.webkitRequestFullscreen().catch(() => {});
             }
         }
 
@@ -555,7 +610,7 @@
             const keyValue = userApiKeyInput.value.trim();
             if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
 
-            try { requestFullScreen(); } catch(e) { console.log("Bypass Fullscreen"); }
+            try { requestFullScreen(); } catch(e) {}
 
             SAVED_USER_API_KEY = keyValue;
             errorLoginMsg.classList.add('hidden');
