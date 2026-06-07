@@ -198,9 +198,12 @@ const eyeForms = {
             } else if (status === 'speaking') {
                 statusDot.className = "w-3 h-3 rounded-full bg-blue-500";
                 statusText.innerText = "KAREN SPEAKING..."; statusText.className = "text-blue-400";
+            } else if (status === 'sleeping') {
+                statusDot.className = "w-3 h-3 rounded-full bg-red-600";
+                statusText.innerText = "KAREN SLEEPING"; statusText.className = "text-red-500";
             } else {
                 statusDot.className = "w-3 h-3 rounded-full bg-gray-600";
-                statusText.innerText = "KAREN SLEEPING"; statusText.className = "text-gray-500";
+                statusText.innerText = "SYSTEM STANDBY"; statusText.className = "text-gray-500";
             }
         }
 
@@ -224,15 +227,19 @@ const eyeForms = {
                 
                 isKarenSpeaking = false;
                 
-                if (isSystemActive) {
+                if (currentChunkIndex >= currentSpeechChunks.length) {
+                animateFace(false);
+                wavePath.removeAttribute('transform'); 
+                isKarenSpeaking = false;
+                
+                // Tambahkan logika ini:
+                if (isSleeping) {
+                    updateMicStatus('sleeping'); // Paksa label kembali ke SLEEPING kalau dia tidur
+                } else if (isSystemActive) {
+                    updateMicStatus('standby'); // Kalau tidak tidur, status normal
                     setTimeout(() => {
-                        // Jangan nyalakan mic otomatis jika sedang shutdown!
-                        if (!isSleeping) {
-                            startListening();
-                            startSilenceTimer(); 
-                        } else {
-                            updateMicStatus('offline'); // Biarkan mic mati total saat tidur
-                        }
+                        startListening();
+                        startSilenceTimer(); 
                     }, 1000);
                 }
                 return;
@@ -493,9 +500,10 @@ const eyeForms = {
             sleepOverlay.style.display = 'flex';
             wavePath.setAttribute('opacity', '0'); 
             leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
-            
-            // Matikan total mic saat shutdown dipicu
             stopListening(); 
+            
+            // Tambahkan ini agar label segera berubah:
+            updateMicStatus('sleeping'); 
             
             playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
         }
