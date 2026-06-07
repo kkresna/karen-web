@@ -17,6 +17,8 @@
             background-color: #000; margin: 0; padding: 0;
             width: 100%; height: 100%; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
+            user-select: none; /* Mencegah teks terblokir saat double click */
+            -webkit-user-select: none;
         }
 
         #karen-screen {
@@ -29,6 +31,7 @@
             background-image: linear-gradient(rgba(74, 222, 128, 0.05) 50%, rgba(0, 0, 0, 0.2) 50%);
             background-size: 100% 4px;
             box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
+            cursor: pointer; /* Indikator area bisa diklik */
         }
 
         .waveform {
@@ -36,6 +39,7 @@
             stroke: #4ade80; stroke-width: 5; fill: none;
             transition: d 0.2s ease, stroke-width 0.2s ease;
             filter: drop-shadow(0 0 15px #4ade80);
+            pointer-events: none; /* Waveform tidak menghalangi klik layar */
         }
 
         .eye-path {
@@ -49,6 +53,7 @@
             background-color: rgba(0, 0, 0, 0.95); z-index: 50;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: #4ade80; font-family: 'Share Tech Mono', monospace;
+            cursor: default;
         }
 
         .plankton-input {
@@ -75,6 +80,7 @@
             background-color: rgba(0, 0, 0, 0.95); z-index: 60;
             flex-direction: column; align-items: center; justify-content: center;
             color: #ef4444; font-family: 'Share Tech Mono', monospace;
+            cursor: default;
         }
 
         #mic-status-indicator {
@@ -90,9 +96,9 @@
             transition: all 0.3s ease;
         }
 
-        /* PERBAIKAN PANEL SUTRADARA: Lebih Terlihat & Mudah Ditekan di HP */
         #director-controls {
             font-family: 'Share Tech Mono', monospace;
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
         .dir-btn {
             transition: all 0.2s ease;
@@ -103,8 +109,8 @@
 <body>
     <div id="karen-screen">
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.3</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">EVIL DIRECTOR'S PANEL AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.4</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">SECRET UI DOOR AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -117,10 +123,10 @@
             <span id="status-text">SYSTEM STANDBY</span>
         </div>
 
-        <div id="director-controls" class="absolute bottom-8 flex flex-wrap justify-center gap-3 w-full px-4 z-50 opacity-70 transition-opacity hidden">
-            <button id="btn-pause" class="dir-btn border-2 border-blue-500 text-blue-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.5)]">🛑 BUNGKAM KAREN</button>
-            <button id="btn-listen" class="dir-btn border-2 border-green-500 text-green-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(74,222,128,0.5)]">😈 DENGAR RENCANAKU</button>
-            <button id="btn-resume" class="dir-btn border-2 border-red-500 text-red-400 bg-black/90 px-8 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(239,68,68,0.5)] hidden">🔓 BUKA SEGEL AUDIO</button>
+        <div id="director-controls" class="absolute bottom-12 flex flex-wrap justify-center gap-3 w-full px-4 z-50 opacity-0 pointer-events-none scale-95 hidden">
+            <button id="btn-pause" class="dir-btn border-2 border-blue-500 text-blue-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.5)] pointer-events-auto">🛑 BUNGKAM KAREN</button>
+            <button id="btn-listen" class="dir-btn border-2 border-green-500 text-green-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(74,222,128,0.5)] pointer-events-auto">😈 DENGAR RENCANAKU</button>
+            <button id="btn-resume" class="dir-btn border-2 border-red-500 text-red-400 bg-black/90 px-8 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(239,68,68,0.5)] pointer-events-auto hidden">🔓 BUKA SEGEL AUDIO</button>
         </div>
 
         <div id="sleep-overlay">
@@ -136,6 +142,7 @@
     </div>
 
     <script>
+        const karenScreen = document.getElementById('karen-screen');
         const wavePath = document.getElementById('wave-path');
         const leftEye = document.getElementById('left-eye');
         const rightEye = document.getElementById('right-eye');
@@ -191,6 +198,39 @@
         function populateVoiceList() { voices = synth.getVoices(); }
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
+
+        // FUNGSI PINTU RAHASIA (DOUBLE TAP DETECTOR)
+        let lastTap = 0;
+        karenScreen.addEventListener('click', function (e) {
+            // Jangan hitung klik kalau yang ditekan adalah tombol atau input box
+            if (e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'input') return;
+            
+            let currentTime = new Date().getTime();
+            let tapLength = currentTime - lastTap;
+            
+            if (tapLength < 500 && tapLength > 0) { // Jika diketuk 2x dalam waktu setengah detik
+                e.preventDefault();
+                // Toggle kelas untuk memunculkan/menghilangkan panel
+                if (directorControls.classList.contains('hidden')) {
+                    directorControls.classList.remove('hidden');
+                    // Timeout kecil untuk memicu transisi CSS (fade in)
+                    setTimeout(() => {
+                        directorControls.classList.remove('opacity-0', 'scale-95');
+                        directorControls.classList.add('opacity-100', 'scale-100');
+                    }, 10);
+                } else {
+                    hideDirectorControls();
+                }
+            }
+            lastTap = currentTime;
+        });
+
+        // Fungsi bantuan untuk menyembunyikan panel dengan halus
+        function hideDirectorControls() {
+            directorControls.classList.remove('opacity-100', 'scale-100');
+            directorControls.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => { directorControls.classList.add('hidden'); }, 300); // Tunggu animasi selesai
+        }
 
         function updateMicStatus(status) {
             if (status === 'listening') {
@@ -417,7 +457,7 @@
         function executeShutdown() {
             isSleeping = true; sleepOverlay.style.display = 'flex'; updateDirectorUI();
             wavePath.setAttribute('opacity', '0'); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
-            stopListening(); updateMicStatus('sleeping'); 
+            stopListening(); updateMicStatus('sleeping'); hideDirectorControls();
             playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
         }
 
@@ -475,10 +515,10 @@
             } else { await triggerGemini(input); }
         }
 
-        // TAUTAN TOMBOL KE MODE KEPRIBADIAN PLANKTON
-        btnPause.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("bungkam karen"); });
-        btnListen.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("dengar rencanaku"); });
-        btnResume.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("buka segel"); });
+        // FUNGSI KLIK TOMBOL: Saat tombol ditekan, panel kembali menghilang
+        btnPause.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; hideDirectorControls(); processInput("bungkam karen"); });
+        btnListen.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; hideDirectorControls(); processInput("dengar rencanaku"); });
+        btnResume.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; hideDirectorControls(); processInput("buka segel"); });
         wakeBtn.addEventListener('click', () => { if (isSleeping && !isKarenSpeaking) { wakeBtn.innerText = "MENDENGARKAN..."; startListening(); } });
 
         startBtn.addEventListener('click', () => {
@@ -487,7 +527,7 @@
             try { document.documentElement.requestFullscreen().catch(()=>{}); } catch(e) {}
 
             SAVED_USER_API_KEY = keyValue; errorLoginMsg.classList.add('hidden');
-            startOverlay.style.display = 'none'; directorControls.classList.remove('hidden'); isSystemActive = true;
+            startOverlay.style.display = 'none'; isSystemActive = true;
             playSpeechChunks([{tag: 'neutral', text: "Sistem enkripsi online. Aku mendengarkan, Plankton."}]);
         });
     </script>
