@@ -89,6 +89,504 @@
             font-size: 1.2rem; font-weight: bold; border-radius: 8px; cursor: pointer;
             transition: all 0.3s ease;
         }
+
+        /* TOMBOL KONTROL SUTRADARA */
+        #director-controls {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .dir-btn {
+            transition: all 0.2s ease;
+        }
+        .dir-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div id="karen-screen">
+        <div id="start-overlay">
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v2.2</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">DIRECTOR'S PANEL & ANTI-CLASH AKTIF</p>
+            <div class="flex flex-col items-center gap-4 w-72 mb-4">
+                <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
+                <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
+            </div>
+            <p id="error-login-msg" class="text-red-500 text-xs tracking-wide hidden">KODE AKSES INVALID!</p>
+        </div>
+
+        <div id="mic-status-indicator" class="text-gray-500">
+            <span id="status-dot" class="w-3 h-3 rounded-full bg-gray-500"></span>
+            <span id="status-text">SYSTEM STANDBY</span>
+        </div>
+
+        <div id="director-controls" class="absolute bottom-8 flex gap-4 opacity-20 hover:opacity-100 transition-opacity z-40 hidden">
+            <button id="btn-pause" class="dir-btn border border-blue-500 text-blue-400 bg-black px-4 py-2 text-xs font-bold rounded shadow-[0_0_10px_rgba(59,130,246,0.3)]">⏸️ PAUSE (DIAM)</button>
+            <button id="btn-listen" class="dir-btn border border-green-500 text-green-400 bg-black px-4 py-2 text-xs font-bold rounded shadow-[0_0_10px_rgba(74,222,128,0.3)]">🎙️ CERITA (PANJANG)</button>
+            <button id="btn-resume" class="dir-btn border border-red-500 text-red-400 bg-black px-8 py-2 text-xs font-bold rounded shadow-[0_0_10px_rgba(239,68,68,0.5)] hidden">▶️ SELESAI / RESUME</button>
+        </div>
+
+        <div id="sleep-overlay">
+            <p class="text-5xl font-bold tracking-widest animate-pulse text-center">SYSTEM SHUTDOWN</p>
+            <button id="wake-btn">TEKAN & KATAKAN "MAAF"</button>
+        </div>
+
+        <svg class="waveform" viewBox="0 0 200 100">
+            <path id="left-eye" class="eye-path" d="M 40 25 L 70 25" opacity="0" />
+            <path id="right-eye" class="eye-path" d="M 130 25 L 160 25" opacity="0" />
+            <path id="wave-path" d="M 10 50 L 190 50" />
+        </svg>
+    </div>
+
+    <script>
+        const wavePath = document.getElementById('wave-path');
+        const leftEye = document.getElementById('left-eye');
+        const rightEye = document.getElementById('right-eye');
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const userApiKeyInput = document.getElementById('user-api-key');
+        const errorLoginMsg = document.getElementById('error-login-msg');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const sleepOverlay = document.getElementById('sleep-overlay');
+        const wakeBtn = document.getElementById('wake-btn');
+        
+        const directorControls = document.getElementById('director-controls');
+        const btnPause = document.getElementById('btn-pause');
+        const btnListen = document.getElementById('btn-listen');
+        const btnResume = document.getElementById('btn-resume');
+
+        const waveForms = {
+            idle: "M 10 50 L 190 50", 
+            speak1: "M 0 50 Q 25 20, 50 50 T 100 50 T 150 80, 200 50",
+            speak2: "M 0 50 Q 25 80, 50 50 T 100 20 T 150 50, 200 50",
+            speak3: "M 0 50 Q 25 10, 50 50 T 100 90 T 150 10, 200 50",
+            annoyed: "M 0 50 L 25 40 L 50 60 L 75 40 L 100 60 L 125 40 L 150 60 L 175 40 L 200 50",
+            ngambek: "M 40 75 L 55 60 L 70 70 L 85 55 L 100 65 L 115 55 L 130 70 L 145 60 L 160 75",
+            heart: "M 100 90 C 100 90 50 50 50 25 C 50 5 85 5 100 25 C 115 5 150 5 150 25 C 150 50 100 90 100 90",
+            warning: "M 100 10 L 100 65 M 100 80 L 100 85 M 100 10 L 50 90 L 150 90 Z",
+            hourglass: "M 85 20 L 115 20 L 100 50 L 115 80 L 85 80 L 100 50 Z"
+        };
+
+        const eyeForms = {
+            neutral: { left: "M 40 25 L 70 25", right: "M 130 25 L 160 25", opacity: 0 },
+            bored: { left: "M 45 25 L 75 25", right: "M 125 25 L 155 25", opacity: 1 }, 
+            happy: { left: "M 40 30 Q 55 10 70 30", right: "M 130 30 Q 145 10 160 30", opacity: 1 },
+            angry: { left: "M 40 15 L 70 35", right: "M 130 35 L 160 15", opacity: 1 },
+            sad: { left: "M 40 35 L 70 15", right: "M 130 15 L 160 35", opacity: 1 },
+            ngambek: { left: "M 35 15 L 75 30 M 40 35 L 70 35", right: "M 165 15 L 125 30 M 160 35 L 130 35", opacity: 1 },
+            curious: { left: "M 40 20 Q 55 0 70 20", right: "M 130 25 L 160 25", opacity: 1 }
+        };
+
+        let speakingInterval; let specialShapeTimeout; 
+        let isSystemActive = false; let SAVED_USER_API_KEY = ""; 
+        let silenceTimer; let boredTimer; let warningCount = 0; 
+        let isSleeping = false; let isScreensaver = false; 
+        let isListeningLong = false; let longTranscript = "";
+
+        const apiUrl = `/api/gemini`;
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). NAMUN, kamu sebenarnya sangat mencintai suamimu dan peduli padanya. Jawablah dalam Bahasa Indonesia tanpa menggunakan asterisk (*).\n\nATURAN MUTLAK:\nKamu WAJIB menyisipkan tag emosi di awal kalimat setiap kali perasaanmu berubah di dalam satu balasan. Pilihan tag HANYA: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].\n\nContoh jawaban yang benar:\n[MARAH] Ide bodoh macam apa lagi ini Plankton?! [BOSAN] Mendengarnya saja membuat prosesorku lelah. [SENANG] Tapi baiklah, karena kau suamiku tercinta, aku akan membantumu.";
+        
+        let chatHistory = [];
+        const synth = window.speechSynthesis;
+        let voices = [];
+        
+        function populateVoiceList() { voices = synth.getVoices(); }
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
+
+        function updateMicStatus(status) {
+            if (status === 'listening') {
+                statusDot.className = "w-3 h-3 rounded-full bg-green-500 animate-ping";
+                statusText.innerText = "KAREN LISTENING..."; statusText.className = "text-green-500";
+            } else if (status === 'speaking') {
+                statusDot.className = "w-3 h-3 rounded-full bg-blue-500";
+                statusText.innerText = "KAREN SPEAKING..."; statusText.className = "text-blue-400";
+            } else if (status === 'sleeping' || status === 'screensaver') {
+                statusDot.className = "w-3 h-3 rounded-full bg-red-600";
+                statusText.innerText = status === 'screensaver' ? "SCREENSAVER MODE" : "KAREN SLEEPING"; 
+                statusText.className = "text-red-500";
+            } else {
+                statusDot.className = "w-3 h-3 rounded-full bg-gray-600";
+                statusText.innerText = "SYSTEM STANDBY"; statusText.className = "text-gray-500";
+            }
+        }
+
+        // FUNGSI UPDATE TOMBOL SUTRADARA
+        function updateDirectorUI() {
+            if (isScreensaver || isListeningLong) {
+                btnPause.classList.add('hidden'); btnListen.classList.add('hidden');
+                btnResume.classList.remove('hidden');
+            } else {
+                btnPause.classList.remove('hidden'); btnListen.classList.remove('hidden');
+                btnResume.classList.add('hidden');
+            }
+        }
+
+        let currentSpeechChunks = []; let currentChunkIndex = 0;
+
+        function playSpeechChunks(chunks) {
+            if(synth.speaking) synth.cancel();
+            currentSpeechChunks = chunks; currentChunkIndex = 0;
+            isKarenSpeaking = true; stopListening();
+            updateMicStatus('speaking'); playNextChunk();
+        }
+
+        function playNextChunk() {
+            if (currentChunkIndex >= currentSpeechChunks.length) {
+                animateFace(false); wavePath.removeAttribute('transform'); 
+                isKarenSpeaking = false;
+                
+                if (isSleeping) {
+                    updateMicStatus('sleeping'); 
+                } else if (isScreensaver) {
+                    updateMicStatus('screensaver');
+                    leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right);
+                    leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
+                    setTimeout(startListening, 1000); 
+                } else if (isListeningLong) {
+                    updateMicStatus('listening');
+                    leftEye.setAttribute('d', eyeForms.curious.left); rightEye.setAttribute('d', eyeForms.curious.right);
+                    leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
+                    setTimeout(startListening, 1000);
+                } else if (isSystemActive) {
+                    updateMicStatus('standby'); 
+                    setTimeout(() => { startListening(); startSilenceTimer(); }, 1000);
+                }
+                return;
+            }
+
+            let chunk = currentSpeechChunks[currentChunkIndex];
+            const utterThis = new SpeechSynthesisUtterance(chunk.text);
+            utterThis.lang = 'id-ID';
+            
+            if (chunk.tag === 'angry' || chunk.tag === 'ngambek') { utterThis.pitch = 0.8; utterThis.rate = 1.15; }
+            else if (chunk.tag === 'happy' || chunk.tag === 'sad') { utterThis.pitch = 1.4; utterThis.rate = 0.95; }
+            else { utterThis.pitch = 1.2; utterThis.rate = 1.08; }
+
+            if (voices.length === 0) populateVoiceList();
+            let selectedVoice = voices.find(v => v.lang.toLowerCase().includes('id') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('perempuan') || v.name.includes('Google')));
+            if (selectedVoice) utterThis.voice = selectedVoice;
+
+            utterThis.onstart = () => { 
+                clearTimers();
+                let specialShape = (chunk.tag === 'happy' && chunk.text.toLowerCase().includes('cinta')) ? 'heart' : null;
+                animateFace(true, chunk.tag, specialShape); 
+            };
+            utterThis.onend = () => { currentChunkIndex++; playNextChunk(); };
+            utterThis.onerror = () => { currentChunkIndex++; playNextChunk(); };
+
+            synth.speak(utterThis);
+        }
+
+        function parseEmotionTags(text) {
+            text = text.replace(/\*/g, ''); const regex = /\[(.*?)\]([^\[]*)/g;
+            let chunks = []; let matches = [...text.matchAll(regex)];
+
+            if (matches.length === 0) {
+                let defaultEmotion = 'neutral'; let lText = text.toLowerCase();
+                if(lText.includes('bodoh') || lText.includes('marah')) defaultEmotion = 'angry';
+                if(lText.includes('sayang') || lText.includes('cinta')) defaultEmotion = 'happy';
+                chunks.push({ tag: defaultEmotion, text: text.trim() });
+            } else {
+                matches.forEach(match => {
+                    let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); 
+                    let emotionMap = { 'marah': 'angry', 'senang': 'happy', 'sedih': 'sad', 'bosan': 'bored', 'netral': 'neutral', 'ngambek': 'ngambek', 'penasaran': 'curious' };
+                    if (match[2].trim().length > 0) chunks.push({ tag: emotionMap[tagRaw] || 'neutral', text: match[2].trim() });
+                });
+            }
+            return chunks;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition; let isRecognizing = false; let isKarenSpeaking = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID'; recognition.continuous = false; recognition.interimResults = false;
+
+            // PERBAIKAN FATAL 1: Hentikan timer AFK detik pertama user bersuara!
+            recognition.onsoundstart = function() {
+                if (!isScreensaver && !isSleeping && !isListeningLong) clearTimers();
+            };
+
+            recognition.onstart = function() {
+                isRecognizing = true;
+                if(!isScreensaver && !isSleeping) updateMicStatus('listening');
+            };
+
+            recognition.onresult = function(event) {
+                if (isKarenSpeaking) return;
+                const transcript = event.results[0][0].transcript.trim();
+                if (transcript) processInput(transcript);
+            };
+
+            recognition.onend = function() {
+                isRecognizing = false;
+                if (isSystemActive && !isKarenSpeaking && !isSleeping) setTimeout(startListening, 1000); 
+                else if(isSleeping) { updateMicStatus('sleeping'); wakeBtn.innerText = 'TEKAN & KATAKAN "MAAF"'; }
+            };
+        }
+
+        function startListening() {
+            if (recognition && !isKarenSpeaking && !isRecognizing && !isSleeping) { try { recognition.start(); } catch(e) {} } 
+            else if (recognition && isSleeping && !isKarenSpeaking) { try { recognition.start(); } catch(e) {} }
+        }
+
+        function stopListening() {
+            if (recognition) { try { recognition.stop(); } catch(e) {} }
+            isRecognizing = false;
+        }
+
+        function animateFace(isSpeaking, emotion = 'neutral', specialShape = null) {
+            clearInterval(speakingInterval); clearTimeout(specialShapeTimeout); 
+            if (eyeForms[emotion]) {
+                leftEye.setAttribute('d', eyeForms[emotion].left); rightEye.setAttribute('d', eyeForms[emotion].right);
+                leftEye.setAttribute('opacity', eyeForms[emotion].opacity); rightEye.setAttribute('opacity', eyeForms[emotion].opacity);
+            }
+
+            if (!isSpeaking) {
+                wavePath.setAttribute('d', emotion === 'ngambek' ? waveForms.ngambek : waveForms.idle);
+                wavePath.removeAttribute('transform'); return;
+            }
+
+            const startMouthAnimation = () => {
+                wavePath.removeAttribute('transform');
+                if (emotion === 'angry' || emotion === 'ngambek') {
+                    wavePath.setAttribute('d', emotion === 'ngambek' ? waveForms.ngambek : waveForms.annoyed);
+                    let toggle = false;
+                    speakingInterval = setInterval(() => { wavePath.setAttribute('transform', toggle ? 'translate(0, 5)' : 'translate(0, -5)'); toggle = !toggle; }, 100);
+                } else {
+                    const speakForms = [waveForms.speak1, waveForms.speak2, waveForms.speak3, waveForms.speak1]; let i = 0;
+                    speakingInterval = setInterval(() => { wavePath.setAttribute('d', speakForms[i]); i = (i + 1) % speakForms.length; }, 150);
+                }
+            };
+
+            if (specialShape && waveForms[specialShape]) {
+                wavePath.setAttribute('d', waveForms[specialShape]); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
+                specialShapeTimeout = setTimeout(startMouthAnimation, 2000);
+            } else { startMouthAnimation(); }
+        }
+
+        async function triggerGemini(inputData) {
+            clearInterval(speakingInterval); wavePath.setAttribute('d', waveForms.hourglass); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
+            let rotation = 0; const thinkInterval = setInterval(() => { rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`); }, 30);
+            
+            let responseText = await fetchKarenResponse(inputData);
+            clearInterval(thinkInterval); wavePath.removeAttribute('transform');
+            
+            if (isScreensaver || isSleeping || isListeningLong) return; // Buang data jika sedang sibuk
+            
+            let chunks = parseEmotionTags(responseText); playSpeechChunks(chunks);
+        }
+
+        async function fetchKarenResponse(userText) {
+            const tempHistory = [...chatHistory, { role: "user", parts: [{ text: userText }] }];
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: tempHistory, systemInstruction: { parts: [{ text: systemPrompt }] }, userApiKey: SAVED_USER_API_KEY })
+                });
+                const result = await response.json();
+                if (result.candidates) {
+                    let aiText = result.candidates[0].content.parts[0].text;
+                    chatHistory.push({ role: "user", parts: [{ text: userText }] }); chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    return aiText;
+                } 
+                return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
+            } catch (error) { return "[MARAH] Wi-Fi laboratorium Chum Bucket bermasalah!"; }
+        }
+
+        function clearTimers() { clearTimeout(silenceTimer); clearTimeout(boredTimer); }
+
+        function startSilenceTimer() {
+            clearTimers();
+            if (isScreensaver || isListeningLong || isSleeping) return; 
+            
+            // PERBAIKAN FATAL 2: Waktu Ngambek diperpanjang drastis agar tidak bentrok
+            boredTimer = setTimeout(() => {
+                leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right); 
+                leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1');
+            }, 10000); // Mata bosan setelah 10 dtk
+
+            let waitTime = (warningCount >= 3) ? 15000 : 25000; // Peringatan marah setelah 25 detik diam!
+
+            silenceTimer = setTimeout(() => {
+                warningCount++;
+                if (warningCount === 1) playSpeechChunks([{tag: 'ngambek', text: "Plankton? Kenapa kau diam saja? Jawab aku!"}]);
+                else if (warningCount === 2) playSpeechChunks([{tag: 'ngambek', text: "Halo? Aku paling benci diabaikan! Berhenti bermain-main!"}]);
+                else if (warningCount === 3) playSpeechChunks([{tag: 'ngambek', text: "Ini peringatan terakhirmu! 5 detik lagi sirkuitku kumatikan!"}]);
+                else if (warningCount > 3) executeShutdown();
+            }, waitTime);
+        }
+
+        function executeShutdown() {
+            isSleeping = true; sleepOverlay.style.display = 'flex'; updateDirectorUI();
+            wavePath.setAttribute('opacity', '0'); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
+            stopListening(); updateMicStatus('sleeping'); 
+            playSpeechChunks([{tag: 'sad', text: "Bagus. Kau mengabaikanku. Selamat tinggal, Plankton."}]);
+        }
+
+        function wakeUp() {
+            isSleeping = false; warningCount = 0; sleepOverlay.style.display = 'none'; wavePath.setAttribute('opacity', '1'); 
+            playSpeechChunks([{tag: 'angry', text: "Sistem kembali online! Jangan berani mengabaikanku lagi!"}]);
+        }
+
+        async function processInput(input) {
+            if (!input.trim() || isKarenSpeaking) return;
+            clearTimers(); 
+            const lowerInput = input.toLowerCase();
+
+            if (isSleeping) {
+                if (lowerInput.includes("maaf")) wakeUp();
+                else wakeBtn.innerText = 'KATA SANDI SALAH!';
+                return; 
+            }
+
+            if (isScreensaver) {
+                if (lowerInput.includes("selesai") || lowerInput.includes("bangun") || lowerInput.includes("kembali") || lowerInput.includes("lanjut")) {
+                    isScreensaver = false; updateDirectorUI();
+                    playSpeechChunks([{tag: 'bored', text: "Oh, akhirnya. Apakah kamu sudah selesai? Baguslah."}]);
+                }
+                return; 
+            }
+
+            if (isListeningLong) {
+                if (lowerInput.includes("selesai") || lowerInput.includes("jawab") || lowerInput.includes("cukup")) {
+                    isListeningLong = false; updateDirectorUI();
+                    let finalInput = (longTranscript + " " + input).replace(/(sudah selesai|selesai|jawab|cukup)/gi, '').trim();
+                    longTranscript = "";
+                    if (finalInput.length > 0) await triggerGemini(finalInput);
+                    else playSpeechChunks([{tag: 'angry', text: "Kau membuang waktuku! Kau tidak bicara apa-apa!"}]);
+                } else { longTranscript += " " + input; }
+                return;
+            }
+
+            warningCount = 0; 
+
+            // Pemicu Suara Diperluas
+            if (lowerInput.includes("diam dulu") || lowerInput.includes("diam sebentar") || lowerInput.includes("mode screensaver") || lowerInput.includes("jeda") || lowerInput.includes("pause")) {
+                isScreensaver = true; updateDirectorUI();
+                playSpeechChunks([{tag: 'bored', text: "Baiklah. Aku masuk mode screensaver dan bengong di sini."}]);
+                return;
+            }
+
+            if (lowerInput.includes("dengarkan aku") || lowerInput.includes("mau bicara") || lowerInput.includes("mau cerita") || lowerInput.includes("beri aku waktu") || lowerInput.includes("dengerin aku")) {
+                isListeningLong = true; longTranscript = ""; updateDirectorUI();
+                playSpeechChunks([{tag: 'neutral', text: "Baik, aku beri kau waktu untuk bicara. Katakan 'sudah selesai' jika kau ingin aku menjawab."}]);
+                return;
+            }
+            
+            if (lowerInput === "hai karen" || lowerInput === "halo karen") {
+                playSpeechChunks([{tag: 'angry', text: "Apa maumu Plankton?"}]);
+            } else { await triggerGemini(input); }
+        }
+
+        // EVENT LISTENER TOMBOL SUTRADARA
+        btnPause.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("mode screensaver"); });
+        btnListen.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("aku mau cerita"); });
+        btnResume.addEventListener('click', () => { if(synth.speaking) synth.cancel(); isKarenSpeaking=false; processInput("sudah selesai"); });
+        wakeBtn.addEventListener('click', () => { if (isSleeping && !isKarenSpeaking) { wakeBtn.innerText = "MENDENGARKAN..."; startListening(); } });
+
+        startBtn.addEventListener('click', () => {
+            const keyValue = userApiKeyInput.value.trim();
+            if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
+            try { document.documentElement.requestFullscreen().catch(()=>{}); } catch(e) {}
+
+            SAVED_USER_API_KEY = keyValue; errorLoginMsg.classList.add('hidden');
+            startOverlay.style.display = 'none'; directorControls.classList.remove('hidden'); isSystemActive = true;
+            playSpeechChunks([{tag: 'neutral', text: "Sistem enkripsi online. Aku mendengarkan, Plankton."}]);
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="/manifest.json">
+    
+    <title>Karen - W.I.F.E. Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            background-color: #000; margin: 0; padding: 0;
+            width: 100%; height: 100%; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        #karen-screen {
+            background-color: #000;
+            width: 100vw; height: 100dvh; 
+            box-sizing: border-box;
+            border: clamp(15px, 4vmin, 40px) solid #1e3a8a;
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            background-image: linear-gradient(rgba(74, 222, 128, 0.05) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
+        }
+
+        .waveform {
+            width: 90%; max-width: 800px; max-height: 60vh; 
+            stroke: #4ade80; stroke-width: 5; fill: none;
+            transition: d 0.2s ease, stroke-width 0.2s ease;
+            filter: drop-shadow(0 0 15px #4ade80);
+        }
+
+        .eye-path {
+            stroke: #4ade80; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round;
+            transition: d 0.2s ease, opacity 0.3s ease;
+            filter: drop-shadow(0 0 15px #4ade80);
+        }
+
+        #start-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95); z-index: 50;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #4ade80; font-family: 'Share Tech Mono', monospace;
+        }
+
+        .plankton-input {
+            background: #111; border: 2px solid #1e3a8a; color: #4ade80;
+            font-family: 'Share Tech Mono', monospace; padding: 10px 15px;
+            border-radius: 4px; outline: none; text-align: center; letter-spacing: 3px;
+            transition: all 0.3s ease;
+        }
+        .plankton-input:focus {
+            border-color: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        #start-btn {
+            background-color: #4ade80; color: #000; border: none; border-radius: 5px;
+            padding: 12px 30px; font-family: 'Share Tech Mono', monospace;
+            font-weight: bold; font-size: 1.1rem; cursor: pointer;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+            z-index: 60;
+        }
+
+        #sleep-overlay {
+            display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95); z-index: 60;
+            flex-direction: column; align-items: center; justify-content: center;
+            color: #ef4444; font-family: 'Share Tech Mono', monospace;
+        }
+
+        #mic-status-indicator {
+            position: absolute; top: 20px; right: 20px;
+            font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        #wake-btn {
+            margin-top: 30px; background: transparent; border: 2px solid #ef4444;
+            color: #ef4444; padding: 15px 30px; font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem; font-weight: bold; border-radius: 8px; cursor: pointer;
+            transition: all 0.3s ease;
+        }
         #wake-btn:hover, #wake-btn:active {
             background: #ef4444; color: #000; box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
         }
