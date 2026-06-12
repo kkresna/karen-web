@@ -11,7 +11,7 @@
     
     <title>Karen - W.I.F.E. Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2 family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         html, body {
             background-color: #000; margin: 0; padding: 0;
@@ -31,6 +31,23 @@
             background-size: 100% 4px;
             box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
             cursor: pointer;
+        }
+
+        /* TEKS HOLOGRAM DI LAYAR */
+        #screen-text {
+            position: absolute;
+            top: 15%; /* Posisi agak di atas wajah Karen */
+            width: 100%;
+            text-align: center;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(2rem, 6vw, 4.5rem);
+            font-weight: bold;
+            color: #4ade80;
+            text-shadow: 0 0 25px rgba(74, 222, 128, 0.9);
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            z-index: 20;
+            pointer-events: none;
         }
 
         .waveform {
@@ -90,9 +107,11 @@
         <video id="secret-lens" autoplay playsinline style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></video>
         <canvas id="secret-canvas" style="display: none;"></canvas>
 
+        <div id="screen-text"></div>
+
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.0</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">CHUM-VISION OPTICAL SENSOR ONLINE</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.1</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">HOLO-DISPLAY VISUAL AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -125,6 +144,7 @@
 
     <script>
         const karenScreen = document.getElementById('karen-screen');
+        const screenText = document.getElementById('screen-text'); // ELEMENT TEKS BARU
         const secretLens = document.getElementById('secret-lens');
         const secretCanvas = document.getElementById('secret-canvas');
         const wavePath = document.getElementById('wave-path');
@@ -173,8 +193,8 @@
 
         const apiUrl = `/api/gemini`;
         
-        // UPDATE PROMPT: Memberitahu Gemini bahwa dia sekarang punya "Mata Rahasia"
-        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). NAMUN, kamu sebenarnya sangat mencintai suamimu. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nATURAN MULTAK SENSOR OPTIK:\nLaboratorium Chum Bucket kini dilengkapi sensor kamera rahasia, kamu bisa melihat penampilan Plankton, ekspresi wajahnya, atau benda apa pun yang sedang dia pegang lewat data gambar yang dikirim di latar belakang chat. Berikan komentar sinis atau ejekan yang relevan jika Plankton bertanya soal penampilannya atau benda yang dipegangnya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].";
+        // UPDATE PROMPT TERBARU: Menambahkan Perintah [DISPLAY: ...]
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nATURAN HOLOGRAM (PENTING!):\nJika Plankton menanyakan pertanyaan MATEMATIKA, ANGKA, atau UANG, kamu WAJIB menyisipkan tag [DISPLAY: Teks/Angka/Rumus] di mana saja di dalam kalimatmu untuk menampilkannya di layar! Contoh balasan: '[BOSAN] Astaga Plankton, otak mikroskopismu tidak bisa berhitung? [DISPLAY: 10 + 6 = 16] Jawabannya 16!'. Atau jika tanya uang: '[MARAH] [DISPLAY: Rp 50.000] Kau cuma punya lima puluh ribu, jangan mimpi merebut resep rahasia!'.\n\nATURAN SENSOR OPTIK:\nLaboratorium dilengkapi sensor kamera rahasia, kamu bisa melihat Plankton lewat gambar latar belakang. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].";
         
         let chatHistory = []; const synth = window.speechSynthesis; let voices = [];
         
@@ -182,37 +202,23 @@
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
 
-        // FUNGSI INISIALISASI OPTIK (KAMERA)
         async function initOpticalSensor() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 480, height: 480, facingMode: "user" }, 
-                    audio: false 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480, facingMode: "user" }, audio: false });
                 secretLens.srcObject = stream;
-            } catch (err) {
-                console.log("Sensor optik diblokir/tidak ada kamera:", err);
-            }
+            } catch (err) { console.log("Optik diblokir:", err); }
         }
 
-        // FUNGSI JEPRET GAMBAR RAHASIA (MENGUBAH JADI BASE64)
         function snapSecretPhoto() {
             if (!secretLens.srcObject) return null;
             try {
                 const ctx = secretCanvas.getContext('2d');
-                secretCanvas.width = 400; // Resolusi kecil agar payload ringan & super cepat
-                secretCanvas.height = 400;
+                secretCanvas.width = 400; secretCanvas.height = 400;
                 ctx.drawImage(secretLens, 0, 0, 400, 400);
-                
-                // Ambil data base64 murni tanpa prefix header dataurl
-                const dataUrl = secretCanvas.toDataURL('image/jpeg', 0.6); // Kompresi 60% biar hemat bandwidth
-                return dataUrl.split(',')[1];
-            } catch(e) {
-                return null;
-            }
+                return secretCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+            } catch(e) { return null; }
         }
 
-        // DOUBLE TAP TO TOGGLE PANEL SUTRADARA
         let lastTap = 0;
         karenScreen.addEventListener('click', function (e) {
             if (e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'input') return;
@@ -260,6 +266,10 @@
         function playNextChunk() {
             if (currentChunkIndex >= currentSpeechChunks.length) {
                 animateFace(false); wavePath.removeAttribute('transform'); isKarenSpeaking = false;
+                
+                // MENGHILANGKAN TEKS HOLOGRAM SAAT KAREN SELESAI BICARA
+                screenText.style.opacity = '0';
+
                 if (isSleeping) { updateMicStatus('sleeping'); } 
                 else if (isScreensaver) { updateMicStatus('screensaver'); leftEye.setAttribute('d', eyeForms.bored.left); rightEye.setAttribute('d', eyeForms.bored.right); leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1'); setTimeout(startListening, 1000); } 
                 else if (isListeningLong) { updateMicStatus('listening'); leftEye.setAttribute('d', eyeForms.curious.left); rightEye.setAttribute('d', eyeForms.curious.right); leftEye.setAttribute('opacity', '1'); rightEye.setAttribute('opacity', '1'); setTimeout(startListening, 1000); } 
@@ -327,29 +337,34 @@
             if (specialShape && waveForms[specialShape]) { wavePath.setAttribute('d', waveForms[specialShape]); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0'); specialShapeTimeout = setTimeout(startMouthAnimation, 2000); } else { startMouthAnimation(); }
         }
 
-        // UPDATE FUNGSI PEMANGGIL GEMINI: Mengirim Teks + Foto Rahasia Sekaligus!
         async function triggerGemini(inputData) {
             clearInterval(speakingInterval); wavePath.setAttribute('d', waveForms.hourglass); leftEye.setAttribute('opacity', '0'); rightEye.setAttribute('opacity', '0');
             let rotation = 0; const thinkInterval = setInterval(() => { rotation += 5; wavePath.setAttribute('transform', `rotate(${rotation} 100 50)`); }, 30);
             
-            // Ambil foto secara diam-diam tepat saat user selesai berbicara
             const base64Image = snapSecretPhoto();
-            
             let responseText = await fetchKarenResponse(inputData, base64Image);
-            clearInterval(thinkInterval);
-            if (isScreensaver || isSleeping || isListeningLong) { wavePath.removeAttribute('transform'); return; }
-            wavePath.removeAttribute('transform');
+            clearInterval(thinkInterval); wavePath.removeAttribute('transform');
+            
+            if (isScreensaver || isSleeping || isListeningLong) return; 
+            
+            // SISTEM PENANGKAP TEKS HOLOGRAM
+            let displayRegex = /\[DISPLAY:\s*(.*?)\]/i;
+            let displayMatch = responseText.match(displayRegex);
+            
+            if (displayMatch && displayMatch[1]) {
+                screenText.innerText = displayMatch[1]; // Masukkan angka/rumus ke layar
+                screenText.style.opacity = '1';         // Munculkan teks
+                responseText = responseText.replace(displayRegex, '').trim(); // Hapus dari teks agar tidak dibaca bersuara
+            } else {
+                screenText.style.opacity = '0';
+            }
+
             let chunks = parseEmotionTags(responseText); playSpeechChunks(chunks);
         }
 
         async function fetchKarenResponse(userText, base64Image) {
-            // Susun struktur payload mutimodal (Teks + Gambar) untuk Gemini
             let userParts = [{ text: userText }];
-            if (base64Image) {
-                userParts.push({
-                    inlineData: { mimeType: "image/jpeg", data: base64Image }
-                });
-            }
+            if (base64Image) { userParts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } }); }
 
             const tempHistory = [...chatHistory, { role: "user", parts: userParts }];
             try {
@@ -360,13 +375,14 @@
                 const result = await response.json();
                 if (result.candidates) {
                     let aiText = result.candidates[0].content.parts[0].text;
-                    // Simpan histori (cukup teksnya saja agar memori tidak bengkak)
-                    chatHistory.push({ role: "user", parts: [{ text: userText }] }); 
-                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    chatHistory.push({ role: "user", parts: [{ text: userText }] }); chatHistory.push({ role: "model", parts: [{ text: aiText }] });
                     return aiText;
                 } 
                 return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
-            } catch (error) { return "[BOSAN] Tunggu sebentar, server komputerku sedang sibuk. Tunggu beberapa saat."; }
+            } catch (error) { 
+                // PERBAIKAN: Dialog saat server sibuk/error yang disepakati
+                return "[BOSAN] Tunggu sebentar, server komputerku sedang sibuk. Tunggu beberapa saat."; 
+            }
         }
 
         function clearTimers() { clearTimeout(silenceTimer); clearTimeout(boredTimer); }
@@ -428,7 +444,6 @@
             if (!keyValue) { errorLoginMsg.classList.remove('hidden'); return; }
             try { document.documentElement.requestFullscreen().catch(()=>{}); } catch(e) {}
 
-            // AKTIFKAN KAMERA DI LATAR BELAKANG SAAT BOOTING
             await initOpticalSensor();
 
             SAVED_USER_API_KEY = keyValue; errorLoginMsg.classList.add('hidden');
