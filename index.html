@@ -45,7 +45,7 @@
             color: #4ade80;
             text-shadow: 0 0 25px rgba(74, 222, 128, 0.9);
             opacity: 0;
-            transition: opacity 0.2s ease-in-out;
+            transition: opacity 0.1s ease-in-out; /* Dibuat lebih cepat agar pop-up mengejutkan */
             z-index: 20;
             pointer-events: none;
         }
@@ -114,8 +114,8 @@
         <div id="screen-text"></div>
 
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.3</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">ANTI-BUG & TIME AWARENESS AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.4</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">CINEMATIC HOLOGRAM TIMING</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -196,12 +196,9 @@
         let isListeningLong = false; let longTranscript = "";
 
         const apiUrl = `/api/gemini`;
-        
-        // WAKTU DINAMIS: Agar Karen tahu hari dan tahun ini
         const currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         
-        // PROMPT BARU: Memakai {{DISPLAY}} bukan [DISPLAY] agar tidak bertabrakan dengan Emosi
-        const systemPrompt = `Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nHari ini adalah tanggal: ${currentDate}.\n\nATURAN HOLOGRAM (SANGAT PENTING!):\nJika Plankton menanyakan MATEMATIKA, ANGKA, STATISTIK, UANG, atau TEBAK SKOR BOLA, kamu WAJIB menyisipkan tag {{DISPLAY: ...}} untuk menampilkannya di layar! \n- Jika ditanya SKOR: {{DISPLAY: BRAZIL 2 - 1 PRANCIS}}\n- Jika ditanya JUMLAH/STATISTIK (contoh: gol Ronaldo): {{DISPLAY: 8 GOL}}\n- Jika ditanya UANG/MATEMATIKA: {{DISPLAY: Rp 50.000}}\n\n🔥 TIMING HOLOGRAM:\nLetakkan tag {{DISPLAY: ...}} selalu di AKHIR KALIMAT setelah kamu memarahinya.\nContoh: '[MARAH] Bodohnya kau ini! [NETRAL] Skornya adalah {{DISPLAY: 2 - 1}}'\n\nATURAN SENSOR OPTIK:\nKamu bisa melihat Plankton lewat sensor kamera rahasia di background. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].`;
+        const systemPrompt = `Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nHari ini adalah tanggal: ${currentDate}.\n\nATURAN HOLOGRAM (SANGAT PENTING!):\nJika Plankton menanyakan MATEMATIKA, ANGKA, STATISTIK, UANG, atau TEBAK SKOR BOLA, kamu WAJIB menyisipkan tag {{DISPLAY: ...}}!\n- SKOR: {{DISPLAY: BRAZIL 2 - 1 PRANCIS}}\n- STATISTIK/GOL: {{DISPLAY: 8 GOL}}\n- UANG/HITUNGAN: {{DISPLAY: Rp 50.000}}\n\n🔥 TIMING HOLOGRAM:\nLetakkan tag {{DISPLAY: ...}} selalu di AKHIR KALIMAT setelah kamu memarahinya agar ada efek kejutan.\nContoh: '[MARAH] Bodohnya kau ini! [NETRAL] Skornya adalah {{DISPLAY: 2 - 1}}'\n\nATURAN SENSOR OPTIK:\nKamu bisa melihat Plankton lewat sensor kamera rahasia di background. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].`;
         
         let chatHistory = []; const synth = window.speechSynthesis; let voices = [];
         
@@ -274,6 +271,7 @@
             if (currentChunkIndex >= currentSpeechChunks.length) {
                 animateFace(false); wavePath.removeAttribute('transform'); isKarenSpeaking = false;
                 
+                // MENGHILANGKAN TEKS HOLOGRAM KETIKA SEMUA PERCAKAPAN SELESAI
                 screenText.style.opacity = '0';
 
                 if (isSleeping) { updateMicStatus('sleeping'); } 
@@ -286,18 +284,10 @@
             let chunk = currentSpeechChunks[currentChunkIndex];
             let chunkText = chunk.text;
 
-            // PENCARIAN HOLOGRAM BARU BERDASARKAN {{DISPLAY: ...}}
-            let displayRegex = /\{\{DISPLAY:\s*(.*?)\}\}/i;
-            let displayMatch = chunkText.match(displayRegex);
-            
-            if (displayMatch && displayMatch[1]) {
-                screenText.innerText = displayMatch[1]; 
+            // MUNCULKAN HOLOGRAM HANYA TEPAT SAAT POTONGAN KALIMAT INI DIBACAKAN!
+            if (chunk.displayValue) {
+                screenText.innerText = chunk.displayValue; 
                 screenText.style.opacity = '1';         
-                // Menghapus tag {{DISPLAY}}, TAPI MENYISAKAN ANGKA (agar dibaca), lalu menyapu bersih tanda titik dua (:)
-                chunkText = chunkText.replace(displayRegex, displayMatch[1]).replace(/[:]/g, '').trim(); 
-            } else {
-                // Walaupun tidak ada layar, tetap sapu tanda titik dua yang nyasar
-                chunkText = chunkText.replace(/[:]/g, '').trim();
             }
 
             const utterThis = new SpeechSynthesisUtterance(chunkText); utterThis.lang = 'id-ID';
@@ -315,20 +305,45 @@
             synth.speak(utterThis);
         }
 
-        // Fungsi ini sekarang 100% aman karena emosi pakai [ ] sedangkan display pakai {{ }}
+        // ==========================================
+        // FITUR BARU: PEMOTONG KALIMAT SINEMATIK
+        // ==========================================
         function parseEmotionTags(text) {
             text = text.replace(/\*/g, ''); const regex = /\[(.*?)\]([^\[]*)/g;
             let chunks = []; let matches = [...text.matchAll(regex)];
+
+            function processContent(emotion, contentStr) {
+                let displayRegex = /\{\{DISPLAY:\s*(.*?)\}\}/i;
+                if (displayRegex.test(contentStr)) {
+                    // Menggunting kalimat tepat di posisi tag {{DISPLAY}} berada
+                    let parts = contentStr.split(/\{\{DISPLAY:\s*.*?\}\}/i);
+                    let displayMatch = contentStr.match(displayRegex)[1];
+
+                    // Masukkan teks cacian/omelan pertama (sebelum display muncul) ke dalam antrean
+                    if (parts[0].trim().length > 0) {
+                        chunks.push({ tag: emotion, text: parts[0].replace(/[:]/g, '').trim() });
+                    }
+                    // Masukkan teks angkanya (Display akan menyala SAAT ini dibacakan)
+                    let restText = (displayMatch + " " + (parts[1] || "")).replace(/[:]/g, '').trim();
+                    chunks.push({ tag: emotion, text: restText, displayValue: displayMatch });
+                } else {
+                    if (contentStr.trim().length > 0) {
+                        chunks.push({ tag: emotion, text: contentStr.replace(/[:]/g, '').trim() });
+                    }
+                }
+            }
+
             if (matches.length === 0) {
                 let defaultEmotion = 'neutral'; let lText = text.toLowerCase();
                 if(lText.includes('bodoh') || lText.includes('marah')) defaultEmotion = 'angry';
                 if(lText.includes('sayang') || lText.includes('cinta')) defaultEmotion = 'happy';
-                chunks.push({ tag: defaultEmotion, text: text.trim() });
+                processContent(defaultEmotion, text);
             } else {
                 matches.forEach(match => {
                     let tagRaw = match[1].toLowerCase().replace(/\s/g, ''); 
                     let emotionMap = { 'marah': 'angry', 'senang': 'happy', 'sedih': 'sad', 'bosan': 'bored', 'netral': 'neutral', 'ngambek': 'ngambek', 'penasaran': 'curious' };
-                    if (match[2].trim().length > 0) chunks.push({ tag: emotionMap[tagRaw] || 'neutral', text: match[2].trim() });
+                    let finalEmotion = emotionMap[tagRaw] || 'neutral';
+                    processContent(finalEmotion, match[2]);
                 });
             }
             return chunks;
