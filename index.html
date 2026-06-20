@@ -36,7 +36,7 @@
         /* TEKS HOLOGRAM DI LAYAR */
         #screen-text {
             position: absolute;
-            top: 15%; /* Posisi agak di atas wajah Karen */
+            top: 15%; 
             width: 100%;
             text-align: center;
             font-family: 'Share Tech Mono', monospace;
@@ -45,7 +45,7 @@
             color: #4ade80;
             text-shadow: 0 0 25px rgba(74, 222, 128, 0.9);
             opacity: 0;
-            transition: opacity 0.4s ease-in-out;
+            transition: opacity 0.2s ease-in-out;
             z-index: 20;
             pointer-events: none;
         }
@@ -99,19 +99,23 @@
             font-size: 1.2rem; font-weight: bold; border-radius: 8px; cursor: pointer;
         }
 
-        #director-controls { font-family: 'Share Tech Mono', monospace; }
+        #director-controls { font-family: 'Share Tech Mono', monospace; transition: opacity 0.3s ease, transform 0.3s ease; }
+        .dir-btn { transition: all 0.2s ease; }
+        .dir-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
     <div id="karen-screen">
+        <!-- MATAMATA RAHASIA -->
         <video id="secret-lens" autoplay playsinline style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></video>
         <canvas id="secret-canvas" style="display: none;"></canvas>
 
+        <!-- TEKS HOLOGRAM -->
         <div id="screen-text"></div>
 
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.1</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">HOLO-DISPLAY VISUAL AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.2</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">SUSPENSE HOLOGRAM AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -125,9 +129,9 @@
         </div>
 
         <div id="director-controls" class="absolute bottom-12 flex flex-wrap justify-center gap-3 w-full px-4 z-50 opacity-0 pointer-events-none scale-95 hidden">
-            <button id="btn-pause" class="border-2 border-blue-500 text-blue-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.5)] pointer-events-auto">🛑 BUNGKAM KAREN</button>
-            <button id="btn-listen" class="border-2 border-green-500 text-green-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(74,222,128,0.5)] pointer-events-auto">😈 DENGAR RENCANAKU</button>
-            <button id="btn-resume" class="border-2 border-red-500 text-red-400 bg-black/90 px-8 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(239,68,68,0.5)] pointer-events-auto hidden">🔓 BUKA SEGEL AUDIO</button>
+            <button id="btn-pause" class="dir-btn border-2 border-blue-500 text-blue-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.5)] pointer-events-auto">🛑 BUNGKAM KAREN</button>
+            <button id="btn-listen" class="dir-btn border-2 border-green-500 text-green-400 bg-black/90 px-4 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(74,222,128,0.5)] pointer-events-auto">😈 DENGAR RENCANAKU</button>
+            <button id="btn-resume" class="dir-btn border-2 border-red-500 text-red-400 bg-black/90 px-8 py-2 text-xs font-bold rounded shadow-[0_0_15px_rgba(239,68,68,0.5)] pointer-events-auto hidden">🔓 BUKA SEGEL AUDIO</button>
         </div>
 
         <div id="sleep-overlay">
@@ -144,7 +148,7 @@
 
     <script>
         const karenScreen = document.getElementById('karen-screen');
-        const screenText = document.getElementById('screen-text'); // ELEMENT TEKS BARU
+        const screenText = document.getElementById('screen-text');
         const secretLens = document.getElementById('secret-lens');
         const secretCanvas = document.getElementById('secret-canvas');
         const wavePath = document.getElementById('wave-path');
@@ -193,8 +197,8 @@
 
         const apiUrl = `/api/gemini`;
         
-        // UPDATE PROMPT TERBARU: Menambahkan Perintah [DISPLAY: ...]
-        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton (pengguna). Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nATURAN HOLOGRAM (PENTING!):\nJika Plankton menanyakan pertanyaan MATEMATIKA, ANGKA, STATISTIK, atau UANG, kamu WAJIB menyisipkan tag [DISPLAY: ...] untuk menampilkannya di layar! \n- Jika ditanya SKOR PERTANDINGAN, gunakan format: [DISPLAY: BRAZIL 2 - 1 PRANCIS]\n- Jika ditanya TOTAL/JUMLAH/STATISTIK (seperti gol Ronaldo), tampilkan angkanya saja: [DISPLAY: 8 GOL]\n- Jika ditanya UANG/MATEMATIKA, tampilkan hasilnya: [DISPLAY: Rp 50.000]\n\nATURAN SENSOR OPTIK:\nLaboratorium dilengkapi sensor kamera rahasia, kamu bisa melihat Plankton lewat gambar latar belakang. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].";
+        // UPDATE PROMPT TERBARU: Instruksi Suspense Timing (Hina dulu, baru tampilkan)
+        const systemPrompt = "Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nATURAN HOLOGRAM (SANGAT PENTING!):\nJika Plankton menanyakan MATEMATIKA, ANGKA, STATISTIK, atau UANG, kamu WAJIB menyisipkan tag [DISPLAY: ...] untuk menampilkannya di layar! \n- Jika ditanya SKOR PERTANDINGAN: [DISPLAY: BRAZIL 2 - 1 PRANCIS]\n- Jika ditanya JUMLAH/STATISTIK (contoh: gol Ronaldo): [DISPLAY: 8 GOL]\n- Jika ditanya UANG/MATEMATIKA: [DISPLAY: Rp 50.000]\n\n🔥 TIMING HOLOGRAM (WAJIB DIIKUTI):\nLetakkan tag [DISPLAY: ...] selalu di AKHIR KALIMAT atau di potongan kalimat terpisah setelah kamu memarahinya. JANGAN taruh di awal kalimat! Biarkan Plankton mendengarkan omelanmu dulu sebelum kau memperlihatkan angkanya.\nContoh: '[MARAH] Bodohnya kau ini! [NETRAL] Skornya adalah [DISPLAY: 2 - 1]'\n\nATURAN SENSOR OPTIK:\nKamu bisa melihat Plankton lewat sensor kamera rahasia di background. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].";
         
         let chatHistory = []; const synth = window.speechSynthesis; let voices = [];
         
@@ -267,7 +271,7 @@
             if (currentChunkIndex >= currentSpeechChunks.length) {
                 animateFace(false); wavePath.removeAttribute('transform'); isKarenSpeaking = false;
                 
-                // MENGHILANGKAN TEKS HOLOGRAM SAAT KAREN SELESAI BICARA
+                // MENGHILANGKAN TEKS HOLOGRAM SAAT KAREN SELESAI BICARA TOTAL
                 screenText.style.opacity = '0';
 
                 if (isSleeping) { updateMicStatus('sleeping'); } 
@@ -278,7 +282,19 @@
             }
 
             let chunk = currentSpeechChunks[currentChunkIndex];
-            const utterThis = new SpeechSynthesisUtterance(chunk.text); utterThis.lang = 'id-ID';
+            let chunkText = chunk.text;
+
+            // PERBAIKAN FATAL: Ekstrak Hologram SECARA DINAMIS per potongan kalimat!
+            let displayRegex = /\[DISPLAY:\s*(.*?)\]/i;
+            let displayMatch = chunkText.match(displayRegex);
+            
+            if (displayMatch && displayMatch[1]) {
+                screenText.innerText = displayMatch[1]; // Masukkan angka/rumus ke layar
+                screenText.style.opacity = '1';         // Munculkan teks TEPAT saat kalimat ini dibaca
+                chunkText = chunkText.replace(displayRegex, displayMatch[1]).trim(); // Bersihkan teks agar Karen cuma baca angkanya
+            }
+
+            const utterThis = new SpeechSynthesisUtterance(chunkText); utterThis.lang = 'id-ID';
             if (chunk.tag === 'angry' || chunk.tag === 'ngambek') { utterThis.pitch = 0.8; utterThis.rate = 1.15; }
             else if (chunk.tag === 'happy' || chunk.tag === 'sad') { utterThis.pitch = 1.4; utterThis.rate = 0.95; }
             else { utterThis.pitch = 1.2; utterThis.rate = 1.08; }
@@ -287,7 +303,7 @@
             let selectedVoice = voices.find(v => v.lang.toLowerCase().includes('id') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('perempuan') || v.name.includes('Google')));
             if (selectedVoice) utterThis.voice = selectedVoice;
 
-            utterThis.onstart = () => { clearTimers(); let specialShape = (chunk.tag === 'happy' && chunk.text.toLowerCase().includes('cinta')) ? 'heart' : null; animateFace(true, chunk.tag, specialShape); };
+            utterThis.onstart = () => { clearTimers(); let specialShape = (chunk.tag === 'happy' && chunkText.toLowerCase().includes('cinta')) ? 'heart' : null; animateFace(true, chunk.tag, specialShape); };
             utterThis.onend = () => { currentChunkIndex++; playNextChunk(); };
             utterThis.onerror = () => { currentChunkIndex++; playNextChunk(); };
             synth.speak(utterThis);
@@ -347,18 +363,7 @@
             
             if (isScreensaver || isSleeping || isListeningLong) return; 
             
-            // SISTEM PENANGKAP TEKS HOLOGRAM
-            let displayRegex = /\[DISPLAY:\s*(.*?)\]/i;
-            let displayMatch = responseText.match(displayRegex);
-            
-            if (displayMatch && displayMatch[1]) {
-                screenText.innerText = displayMatch[1]; // Masukkan angka/rumus ke layar
-                screenText.style.opacity = '1';         // Munculkan teks
-                responseText = responseText.replace(displayRegex, displayMatch[1]).trim(); // Biarkan angka tetap dibaca bersuara
-            } else {
-                screenText.style.opacity = '0';
-            }
-
+            // Perbaikan Timing: Ekstraksi tag DISPLAY ditiadakan dari sini, dipindah ke fungsi playNextChunk di atas
             let chunks = parseEmotionTags(responseText); playSpeechChunks(chunks);
         }
 
@@ -380,7 +385,6 @@
                 } 
                 return "[MARAH] Modul logikaku mendeteksi anomali pusat.";
             } catch (error) { 
-                // PERBAIKAN: Dialog saat server sibuk/error yang disepakati
                 return "[BOSAN] Tunggu sebentar, server komputerku sedang sibuk. Tunggu beberapa saat."; 
             }
         }
