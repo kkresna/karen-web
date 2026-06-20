@@ -114,8 +114,8 @@
         <div id="screen-text"></div>
 
         <div id="start-overlay">
-            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.2</p>
-            <p class="mb-6 text-sm text-gray-500 tracking-wider">SUSPENSE HOLOGRAM AKTIF</p>
+            <p class="mb-2 text-center px-4 text-xl font-bold tracking-widest text-blue-400">CHUM BUCKET LABS OS v3.3</p>
+            <p class="mb-6 text-sm text-gray-500 tracking-wider">ANTI-BUG & TIME AWARENESS AKTIF</p>
             <div class="flex flex-col items-center gap-4 w-72 mb-4">
                 <input type="password" id="user-api-key" class="plankton-input w-full text-lg" placeholder="•••••••••••••••••" autocomplete="off">
                 <button id="start-btn" class="w-full">BOOT SYSTEM KAREN</button>
@@ -197,26 +197,11 @@
 
         const apiUrl = `/api/gemini`;
         
-        // UPDATE PROMPT TERBARU: Injeksi Waktu Dunia Nyata & Cegah Tanda Baca Mesin
+        // WAKTU DINAMIS: Agar Karen tahu hari dan tahun ini
         const currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const systemPrompt = `Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).
-
-INFO SISTEM WAKTU NYATA (REAL-TIME):
-Hari ini adalah ${currentDate}. Ingat, Piala Dunia 2026 SEDANG BERLANGSUNG SEKARANG! Jika Plankton bertanya soal Piala Dunia 2026, jangan pernah bilang masih lama. Langsung tebak saja skor, pemenang, atau statistiknya dengan gaya sok tahu!
-
-ATURAN HOLOGRAM (SANGAT PENTING!):
-Jika Plankton menanyakan MATEMATIKA, ANGKA, STATISTIK, atau UANG, kamu WAJIB menyisipkan tag [DISPLAY: ...] untuk menampilkannya di layar! JANGAN GUNAKAN TANDA TITIK DUA (:) SEBELUM TAG INI!
-- Jika ditanya SKOR PERTANDINGAN: [DISPLAY: BRAZIL 2 - 1 PRANCIS]
-- Jika ditanya JUMLAH/STATISTIK (contoh: gol Ronaldo): [DISPLAY: 8 GOL]
-- Jika ditanya UANG/MATEMATIKA: [DISPLAY: Rp 50.000]
-
-🔥 TIMING HOLOGRAM (WAJIB DIIKUTI):
-Letakkan tag [DISPLAY: ...] selalu di AKHIR KALIMAT. JANGAN taruh di awal kalimat dan JANGAN taruh tanda titik dua (:) sebelumnya. Contoh yang benar: '[MARAH] Hitungan semudah ini saja kau gagal? Jawabannya adalah [DISPLAY: 16]' 
-
-ATURAN SENSOR OPTIK:
-Kamu bisa melihat Plankton lewat sensor kamera rahasia di background. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!
-
-Kamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].`;
+        
+        // PROMPT BARU: Memakai {{DISPLAY}} bukan [DISPLAY] agar tidak bertabrakan dengan Emosi
+        const systemPrompt = `Kamu adalah Karen, istri komputer Plankton dari SpongeBob SquarePants. Sifat utamamu: sinis, sarkastik, dan suka mengejek ide-ide Plankton. Jawablah dalam Bahasa Indonesia tanpa tanda bintang (*).\n\nHari ini adalah tanggal: ${currentDate}.\n\nATURAN HOLOGRAM (SANGAT PENTING!):\nJika Plankton menanyakan MATEMATIKA, ANGKA, STATISTIK, UANG, atau TEBAK SKOR BOLA, kamu WAJIB menyisipkan tag {{DISPLAY: ...}} untuk menampilkannya di layar! \n- Jika ditanya SKOR: {{DISPLAY: BRAZIL 2 - 1 PRANCIS}}\n- Jika ditanya JUMLAH/STATISTIK (contoh: gol Ronaldo): {{DISPLAY: 8 GOL}}\n- Jika ditanya UANG/MATEMATIKA: {{DISPLAY: Rp 50.000}}\n\n🔥 TIMING HOLOGRAM:\nLetakkan tag {{DISPLAY: ...}} selalu di AKHIR KALIMAT setelah kamu memarahinya.\nContoh: '[MARAH] Bodohnya kau ini! [NETRAL] Skornya adalah {{DISPLAY: 2 - 1}}'\n\nATURAN SENSOR OPTIK:\nKamu bisa melihat Plankton lewat sensor kamera rahasia di background. Ejek penampilannya atau benda yang dipegangnya jika dia bertanya!\n\nKamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [BOSAN], [NETRAL], [NGAMBEK], atau [PENASARAN].`;
         
         let chatHistory = []; const synth = window.speechSynthesis; let voices = [];
         
@@ -289,7 +274,6 @@ Kamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [B
             if (currentChunkIndex >= currentSpeechChunks.length) {
                 animateFace(false); wavePath.removeAttribute('transform'); isKarenSpeaking = false;
                 
-                // MENGHILANGKAN TEKS HOLOGRAM SAAT KAREN SELESAI BICARA TOTAL
                 screenText.style.opacity = '0';
 
                 if (isSleeping) { updateMicStatus('sleeping'); } 
@@ -302,19 +286,19 @@ Kamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [B
             let chunk = currentSpeechChunks[currentChunkIndex];
             let chunkText = chunk.text;
 
-            // PERBAIKAN FATAL: Ekstrak Hologram SECARA DINAMIS per potongan kalimat!
-            let displayRegex = /\[DISPLAY:\s*(.*?)\]/i;
+            // PENCARIAN HOLOGRAM BARU BERDASARKAN {{DISPLAY: ...}}
+            let displayRegex = /\{\{DISPLAY:\s*(.*?)\}\}/i;
             let displayMatch = chunkText.match(displayRegex);
             
             if (displayMatch && displayMatch[1]) {
-                screenText.innerText = displayMatch[1]; // Masukkan angka/rumus ke layar
-                screenText.style.opacity = '1';         // Munculkan teks TEPAT saat kalimat ini dibaca
-                // Memasukkan angkanya ke dalam suara agar dibaca Karen
-                chunkText = chunkText.replace(displayRegex, displayMatch[1]); 
+                screenText.innerText = displayMatch[1]; 
+                screenText.style.opacity = '1';         
+                // Menghapus tag {{DISPLAY}}, TAPI MENYISAKAN ANGKA (agar dibaca), lalu menyapu bersih tanda titik dua (:)
+                chunkText = chunkText.replace(displayRegex, displayMatch[1]).replace(/[:]/g, '').trim(); 
+            } else {
+                // Walaupun tidak ada layar, tetap sapu tanda titik dua yang nyasar
+                chunkText = chunkText.replace(/[:]/g, '').trim();
             }
-
-            // PERBAIKAN BUG SUARA "TITIK": Membuang tanda titik dua & bintang yang nyasar
-            chunkText = chunkText.replace(/[:*]/g, '').trim(); 
 
             const utterThis = new SpeechSynthesisUtterance(chunkText); utterThis.lang = 'id-ID';
             if (chunk.tag === 'angry' || chunk.tag === 'ngambek') { utterThis.pitch = 0.8; utterThis.rate = 1.15; }
@@ -331,6 +315,7 @@ Kamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [B
             synth.speak(utterThis);
         }
 
+        // Fungsi ini sekarang 100% aman karena emosi pakai [ ] sedangkan display pakai {{ }}
         function parseEmotionTags(text) {
             text = text.replace(/\*/g, ''); const regex = /\[(.*?)\]([^\[]*)/g;
             let chunks = []; let matches = [...text.matchAll(regex)];
@@ -385,7 +370,6 @@ Kamu WAJIB menyisipkan tag emosi di awal kalimat: [MARAH], [SENANG], [SEDIH], [B
             
             if (isScreensaver || isSleeping || isListeningLong) return; 
             
-            // Perbaikan Timing: Ekstraksi tag DISPLAY ditiadakan dari sini, dipindah ke fungsi playNextChunk di atas
             let chunks = parseEmotionTags(responseText); playSpeechChunks(chunks);
         }
 
